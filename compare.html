@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مقایسه محصولات | ارزان کالا</title>
+    <style>
+        /* ===== استایل‌های پایه (مشترک) ===== */
+        *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,'Segoe UI',Roboto,'Helvetica Neue',sans-serif}
+        body{background-color:#0a0c0b;color:#fff;overflow-x:hidden}
+        :root{
+            --primary:#00c853;
+            --primary-dark:#008040;
+            --bg-dark:#0a0c0b;
+            --bg-card:#1a1e1d;
+            --bg-nav:#050606;
+            --border:#2a2f2e;
+            --text-light:#e0e0e0;
+            --text-muted:#a0a0a0;
+            --danger:#ff5252;
+            --warning:#ffc107;
+            --shadow:0 10px 30px rgba(0,200,83,0.2);
+        }
+        /* ===== نوار بالایی (منوی اصلی) ===== */
+        .navbar{
+            position:fixed;
+            top:0;
+            left:0;
+            width:100%;
+            background:var(--bg-nav);
+            border-bottom:3px solid var(--primary-dark);
+            padding:0.8rem 2rem;
+            z-index:10000;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            box-shadow:0 2px 20px rgba(0,200,83,0.2);
+        }
+        .navbar-brand{
+            color:var(--primary);
+            font-size:1.8rem;
+            font-weight:800;
+            text-decoration:none;
+            display:flex;
+            align-items:center;
+            gap:10px;
+            letter-spacing:1px;
+        }
+        .nav-menu{
+            display:flex;
+            align-items:center;
+            gap:1rem;
+            list-style:none;
+            margin:0;
+            padding:0;
+        }
+        .nav-item{
+            position:relative;
+        }
+        .nav-link{
+            color:var(--text-light);
+            text-decoration:none;
+            padding:0.6rem 1.2rem;
+            border-radius:30px;
+            font-weight:500;
+            transition:all 0.3s;
+            display:flex;
+            align-items:center;
+            gap:8px;
+            white-space:nowrap;
+        }
+        .nav-link i{
+            color:var(--primary);
+            font-size:1.1rem;
+        }
+        .nav-link:hover{
+            background:rgba(0,200,83,0.15);
+            color:var(--primary);
+            transform:translateY(-2px);
+        }
+        .dropdown-menu{
+            position:absolute;
+            top:100%;
+            right:0;
+            background:var(--bg-card);
+            border:1px solid var(--primary);
+            border-radius:20px;
+            padding:0.8rem;
+            min-width:220px;
+            display:none;
+            z-index:1000;
+            box-shadow:var(--shadow);
+            backdrop-filter:blur(10px);
+        }
+        .dropdown:hover .dropdown-menu{
+            display:block;
+            animation:fadeIn 0.3s;
+        }
+        @keyframes fadeIn{
+            from{opacity:0;transform:translateY(-10px);}
+            to{opacity:1;transform:translateY(0);}
+        }
+        .dropdown-item{
+            color:var(--text-light);
+            padding:0.8rem 1rem;
+            text-decoration:none;
+            display:block;
+            border-radius:12px;
+            transition:0.2s;
+        }
+        .dropdown-item:hover{
+            background:rgba(0,200,83,0.15);
+            color:var(--primary);
+            padding-right:1.5rem;
+        }
+        .nav-tools{
+            display:flex;
+            align-items:center;
+            gap:1rem;
+        }
+        .search-box{
+            position:relative;
+            width:250px;
+        }
+        .search-box input{
+            width:100%;
+            background:var(--bg-card);
+            border:1px solid var(--border);
+            border-radius:40px;
+            padding:0.7rem 1rem 0.7rem 3rem;
+            color:#fff;
+            outline:none;
+            transition:0.3s;
+        }
+        .search-box input:focus{
+            border-color:var(--primary);
+            box-shadow:0 0 0 3px rgba(0,200,83,0.2);
+        }
+        .search-box button{
+            position:absolute;
+            left:12px;
+            top:50%;
+            transform:translateY(-50%);
+            background:none;
+            border:none;
+            color:var(--primary);
+            font-size:1.2rem;
+            cursor:pointer;
+        }
+        .cart-btn{
+            background:var(--bg-card);
+            border:none;
+            border-radius:50%;
+            width:48px;
+            height:48px;
+            color:var(--primary);
+            font-size:1.3rem;
+            cursor:pointer;
+            transition:0.3s;
+            position:relative;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+        }
+        .cart-btn:hover{
+            background:#232827;
+            transform:scale(1.1);
+        }
+        .badge{
+            position:absolute;
+            top:-5px;
+            right:-5px;
+            background:var(--primary);
+            color:#fff;
+            border-radius:50px;
+            padding:3px 8px;
+            font-size:0.7rem;
+            font-weight:bold;
+            min-width:22px;
+            text-align:center;
+        }
+        .login-btn{
+            background:var(--bg-card);
+            border:2px solid var(--primary);
+            border-radius:50%;
+            width:48px;
+            height:48px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:var(--primary);
+            text-decoration:none;
+            transition:0.3s;
+            font-size:1.2rem;
+        }
+        .login-btn:hover{
+            background:var(--primary);
+            color:#fff;
+            transform:scale(1.1);
+        }
+        .hamburger{
+            display:none;
+            background:var(--bg-card);
+            border:none;
+            border-radius:50%;
+            width:48px;
+            height:48px;
+            color:var(--primary);
+            font-size:1.5rem;
+            cursor:pointer;
+            transition:0.3s;
+            align-items:center;
+            justify-content:center;
+        }
+        .mobile-menu{
+            position:fixed;
+            top:70px;
+            left:0;
+            width:100%;
+            height:calc(100vh - 70px);
+            background:var(--bg-nav);
+            z-index:9999;
+            padding:2rem;
+            display:flex;
+            flex-direction:column;
+            gap:1.5rem;
+            transform:translateX(100%);
+            transition:transform 0.4s ease;
+            overflow-y:auto;
+            border-top:2px solid var(--primary);
+        }
+        .mobile-menu.active{
+            transform:translateX(0);
+        }
+        .mobile-menu .nav-link{
+            font-size:1.3rem;
+            padding:1rem;
+            border-bottom:1px solid var(--border);
+            width:100%;
+        }
+        .mobile-menu .dropdown-menu{
+            position:static;
+            display:block;
+            background:transparent;
+            border:none;
+            box-shadow:none;
+            padding:0.5rem 2rem;
+        }
+        /* ===== سبد خرید کشویی ===== */
+        .cart-wrapper{
+            position:fixed;
+            top:80px;
+            left:20px;
+            width:380px;
+            z-index:9998;
+            visibility:hidden;
+            opacity:0;
+            transform:translateY(-20px);
+            transition:0.3s;
+            pointer-events:none;
+        }
+        .cart-wrapper.active{
+            visibility:visible;
+            opacity:1;
+            transform:translateY(0);
+            pointer-events:auto;
+        }
+        .cart{
+            background:var(--bg-card);
+            border:2px solid var(--primary);
+            border-radius:24px;
+            box-shadow:var(--shadow);
+            overflow:hidden;
+        }
+        .cart-header{
+            background:linear-gradient(145deg,var(--primary),var(--primary-dark));
+            padding:1.2rem;
+        }
+        .cart-body{
+            padding:1.2rem;
+            max-height:400px;
+            overflow-y:auto;
+        }
+        .cart-item{
+            display:flex;
+            gap:12px;
+            background:#0d0f0e;
+            border-radius:16px;
+            padding:12px;
+            margin-bottom:12px;
+            align-items:center;
+        }
+        .cart-item img{
+            width:60px;
+            height:60px;
+            object-fit:contain;
+            background:#0a0c0b;
+            border-radius:12px;
+            padding:5px;
+        }
+        .cart-item-info{
+            flex:1;
+        }
+        .cart-item-name{
+            font-weight:700;
+            margin-bottom:4px;
+        }
+        .cart-item-price{
+            color:var(--primary);
+            font-weight:600;
+        }
+        .cart-qty{
+            display:flex;
+            align-items:center;
+            gap:8px;
+            margin-top:8px;
+        }
+        .qty-btn{
+            background:transparent;
+            border:1px solid var(--primary);
+            color:var(--primary);
+            width:28px;
+            height:28px;
+            border-radius:6px;
+            cursor:pointer;
+            font-size:1.2rem;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+        }
+        .remove-btn{
+            background:var(--danger);
+            border:none;
+            color:#fff;
+            width:28px;
+            height:28px;
+            border-radius:6px;
+            cursor:pointer;
+        }
+        .cart-summary{
+            border-top:2px solid var(--border);
+            padding-top:1rem;
+            margin-top:0.5rem;
+        }
+        .total-price{
+            color:var(--primary);
+            font-size:1.6rem;
+            font-weight:800;
+        }
+        .cart-actions{
+            display:flex;
+            gap:10px;
+            margin-top:1rem;
+        }
+        .btn-clear{
+            background:var(--danger);
+            color:#fff;
+            border:none;
+            border-radius:12px;
+            padding:0.8rem;
+            flex:1;
+            font-weight:600;
+            cursor:pointer;
+        }
+        .btn-pay{
+            background:transparent;
+            border:2px solid var(--warning);
+            color:var(--warning);
+            border-radius:12px;
+            padding:0.8rem;
+            flex:1;
+            text-align:center;
+            text-decoration:none;
+            font-weight:600;
+        }
+        /* ===== محتوای اصلی صفحه مقایسه ===== */
+        .main-content{
+            margin-top:100px;
+            padding:2rem;
+        }
+        .container{
+            max-width:1400px;
+            margin:0 auto;
+            padding:0 1rem;
+        }
+        .compare-header{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:2rem;
+            flex-wrap:wrap;
+            gap:1rem;
+        }
+        .compare-header h1{
+            font-size:2.2rem;
+            color:var(--primary);
+        }
+        .btn-danger{
+            background:var(--danger);
+            color:#fff;
+            border:none;
+            padding:0.8rem 2rem;
+            border-radius:40px;
+            font-weight:600;
+            cursor:pointer;
+            transition:0.3s;
+            display:flex;
+            align-items:center;
+            gap:10px;
+        }
+        .btn-danger:hover{
+            transform:translateY(-2px);
+            box-shadow:0 5px 15px rgba(255,82,82,0.3);
+        }
+        .compare-table-wrapper{
+            overflow-x:auto;
+            background:var(--bg-card);
+            border-radius:30px;
+            border:1px solid var(--border);
+            padding:1rem;
+        }
+        .compare-table{
+            width:100%;
+            border-collapse:collapse;
+            min-width:800px;
+        }
+        .compare-table th{
+            background:var(--bg-nav);
+            color:var(--primary);
+            padding:1.5rem;
+            font-size:1.2rem;
+            border-bottom:2px solid var(--primary);
+        }
+        .compare-table td{
+            padding:1.2rem;
+            text-align:center;
+            border-bottom:1px solid var(--border);
+            vertical-align:middle;
+        }
+        .compare-table tr:last-child td{
+            border-bottom:none;
+        }
+        .compare-table td:first-child{
+            background:var(--bg-nav);
+            font-weight:700;
+            color:var(--primary);
+            width:180px;
+        }
+        .compare-product-img{
+            width:120px;
+            height:120px;
+            object-fit:contain;
+            background:#0d0f0e;
+            border-radius:20px;
+            padding:1rem;
+            margin-bottom:0.5rem;
+        }
+        .compare-product-name{
+            font-weight:700;
+            margin:0.5rem 0;
+        }
+        .compare-product-price{
+            color:var(--primary);
+            font-weight:800;
+            font-size:1.2rem;
+            margin:0.5rem 0;
+        }
+        .compare-actions{
+            display:flex;
+            flex-direction:column;
+            gap:8px;
+            margin-top:1rem;
+        }
+        .btn-sm{
+            padding:0.5rem;
+            border-radius:10px;
+            border:none;
+            cursor:pointer;
+            font-size:0.9rem;
+            transition:0.2s;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:5px;
+        }
+        .btn-success{
+            background:linear-gradient(145deg,var(--primary),var(--primary-dark));
+            color:#fff;
+        }
+        .btn-outline-danger{
+            background:transparent;
+            border:1px solid var(--danger);
+            color:var(--danger);
+        }
+        .btn-outline-danger:hover{
+            background:rgba(255,82,82,0.1);
+        }
+        .feature-match{
+            color:var(--primary);
+        }
+        .feature-mismatch{
+            color:var(--danger);
+        }
+        .empty-compare{
+            text-align:center;
+            padding:5rem;
+            background:var(--bg-card);
+            border-radius:30px;
+        }
+        .empty-compare i{
+            font-size:5rem;
+            color:var(--primary);
+            margin-bottom:2rem;
+        }
+        .empty-compare h2{
+            font-size:2rem;
+            margin-bottom:1rem;
+        }
+        .empty-compare p{
+            color:var(--text-muted);
+            margin-bottom:2rem;
+        }
+        /* ===== فوتر ===== */
+        .footer{
+            background:#050606;
+            border-top:4px solid var(--primary-dark);
+            padding:4rem 2rem 2rem;
+            margin-top:5rem;
+        }
+        .footer a{
+            color:#b0b0b0;
+            text-decoration:none;
+            transition:0.3s;
+            line-height:2.2;
+        }
+        .footer a:hover{
+            color:var(--primary);
+            padding-right:8px;
+        }
+        .social-btn{
+            border:2px solid var(--primary);
+            border-radius:50%;
+            width:50px;
+            height:50px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:var(--primary);
+            transition:0.3s;
+        }
+        .social-btn:hover{
+            background:var(--primary);
+            color:#fff;
+            transform:translateY(-5px);
+        }
+        /* ===== ریسپانسیو ===== */
+        @media (max-width:992px){
+            .nav-menu{
+                display:none;
+            }
+            .hamburger{
+                display:flex;
+            }
+            .search-box{
+                width:180px;
+            }
+        }
+        @media (max-width:768px){
+            .navbar{
+                padding:0.8rem 1rem;
+            }
+            .navbar-brand{
+                font-size:1.5rem;
+            }
+            .nav-tools{
+                gap:0.5rem;
+            }
+            .search-box{
+                width:140px;
+            }
+            .cart-wrapper{
+                left:10px;
+                width:95%;
+                max-width:360px;
+            }
+            .compare-header h1{
+                font-size:1.8rem;
+            }
+        }
+        @media (max-width:480px){
+            .search-box{
+                display:none;
+            }
+        }
+        .text-primary{color:var(--primary);}
+        .text-center{text-align:center;}
+        .mt-3{margin-top:1rem;}
+        .mb-3{margin-bottom:1rem;}
+        .d-flex{display:flex;}
+        .gap-2{gap:0.8rem;}
+        .align-center{align-items:center;}
+        .justify-between{justify-content:space-between;}
+        .flex-wrap{flex-wrap:wrap;}
+    </style>
+</head>
+<body>
+    <!-- ناوبری اصلی -->
+    <nav class="navbar">
+        <a class="navbar-brand" href="index.html"><i class="fa fa-store"></i> ارزان‌کالا</a>
+        
+        <ul class="nav-menu">
+            <li class="nav-item"><a class="nav-link" href="index.html"><i class="fa fa-home"></i> خانه</a></li>
+            <li class="nav-item"><a class="nav-link" href="category.html"><i class="fa fa-store"></i> محصولات</a></li>
+            <li class="nav-item"><a class="nav-link" href="choose.html"><i class="fa fa-robot"></i> پیشنهاد</a></li>
+            <li class="nav-item"><a class="nav-link" href="compare.html"><i class="fa fa-balance-scale"></i> مقایسه <span class="badge" id="compareCountDesktop">0</span></a></li>
+            <li class="nav-item dropdown">
+                <a class="nav-link" href="#"><i class="fa fa-bars"></i> دسته‌بندی</a>
+                <div class="dropdown-menu">
+                    <a class="dropdown-item" href="category.html?category=mobile"><i class="fa fa-mobile-alt"></i> موبایل</a>
+                    <a class="dropdown-item" href="category.html?category=laptop"><i class="fa fa-laptop"></i> لپ تاپ</a>
+                    <a class="dropdown-item" href="category.html?category=accessory"><i class="fa fa-headphones"></i> لوازم جانبی</a>
+                </div>
+            </li>
+        </ul>
+
+        <div class="nav-tools">
+            <div class="search-box">
+                <form onsubmit="event.preventDefault();window.location='category.html?search='+encodeURIComponent(this.querySelector('input').value)">
+                    <input type="text" placeholder="جستجو...">
+                    <button type="submit"><i class="fa fa-search"></i></button>
+                </form>
+            </div>
+            <button class="cart-btn" id="cartToggleBtn">
+                <i class="fa fa-shopping-cart"></i>
+                <span class="badge" id="cartTotal">0</span>
+            </button>
+            <a href="register.html" class="login-btn"><i class="fa fa-user"></i></a>
+            <button class="hamburger" id="hamburgerBtn"><i class="fa fa-bars"></i></button>
+        </div>
+    </nav>
+
+    <!-- منوی موبایل -->
+    <div class="mobile-menu" id="mobileMenu">
+        <a class="nav-link" href="index.html"><i class="fa fa-home"></i> خانه</a>
+        <a class="nav-link" href="category.html"><i class="fa fa-store"></i> محصولات</a>
+        <a class="nav-link" href="choose.html"><i class="fa fa-robot"></i> پیشنهاد</a>
+        <a class="nav-link" href="compare.html"><i class="fa fa-balance-scale"></i> مقایسه <span class="badge" id="compareCountMobile">0</span></a>
+        <div class="dropdown">
+            <a class="nav-link" href="#"><i class="fa fa-bars"></i> دسته‌بندی</a>
+            <div class="dropdown-menu">
+                <a class="dropdown-item" href="category.html?category=mobile">موبایل</a>
+                <a class="dropdown-item" href="category.html?category=laptop">لپ تاپ</a>
+                <a class="dropdown-item" href="category.html?category=accessory">لوازم جانبی</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- سبد خرید کشویی -->
+    <div class="cart-wrapper" id="cartMenu">
+        <div class="cart">
+            <div class="cart-header"><h3><i class="fa fa-shopping-cart"></i> سبد خرید</h3></div>
+            <div class="cart-body" id="cartItems"></div>
+            <div style="padding:1.2rem;padding-top:0;">
+                <div class="cart-summary">
+                    <div class="d-flex justify-between align-center">
+                        <span style="font-size:1.2rem;">مجموع:</span>
+                        <span class="total-price" id="cartTotalPrice">0</span>
+                        <span>تومان</span>
+                    </div>
+                    <div class="cart-actions">
+                        <button class="btn-clear" id="clearCartBtn"><i class="fa fa-trash"></i> حذف همه</button>
+                        <a href="buy.html" class="btn-pay" id="payBtn"><i class="fa fa-credit-card"></i> پرداخت</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- محتوای اصلی صفحه مقایسه -->
+    <div class="main-content">
+        <div class="container">
+            <div class="compare-header">
+                <h1><i class="fa fa-balance-scale"></i> مقایسه محصولات</h1>
+                <button class="btn-danger" id="clearCompareBtn"><i class="fa fa-trash"></i> حذف همه</button>
+            </div>
+            <div id="compareContainer" class="compare-table-wrapper">
+                <!-- محتوا با جاوااسکریپت پر می‌شود -->
+            </div>
+        </div>
+    </div>
+
+    <!-- فوتر -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col">
+                    <h4 style="color:var(--primary);margin-bottom:1.5rem;">ارزان کالا</h4>
+                    <p>فروشگاه آنلاین با 10 سال سابقه درخشان. اصالت کالا تضمینی، ارسال اکسپرس به سراسر ایران.</p>
+                </div>
+                <div class="col">
+                    <h4 style="color:var(--primary);margin-bottom:1.5rem;">لینک‌های مفید</h4>
+                    <a href="#">درباره ما</a><br>
+                    <a href="#">تماس با ما</a><br>
+                    <a href="#">قوانین</a>
+                </div>
+                <div class="col">
+                    <h4 style="color:var(--primary);margin-bottom:1.5rem;">دسته‌بندی‌ها</h4>
+                    <a href="category.html?category=mobile">موبایل</a><br>
+                    <a href="category.html?category=laptop">لپ تاپ</a><br>
+                    <a href="category.html?category=accessory">لوازم جانبی</a>
+                </div>
+                <div class="col">
+                    <h4 style="color:var(--primary);margin-bottom:1.5rem;">ارتباط با ما</h4>
+                    <p><i class="fa fa-map-marker"></i> تهران، ولیعصر</p>
+                    <p><i class="fa fa-phone"></i> ۰۲۱-۱۲۳۴۵۶۷۸</p>
+                </div>
+            </div>
+            <hr style="border-color:#2a2f2e;margin:2rem 0;">
+            <div class="d-flex justify-between align-center flex-wrap" style="gap:1rem;">
+                <div class="d-flex gap-2">
+                    <a href="#" class="social-btn"><i class="fab fa-instagram"></i></a>
+                    <a href="#" class="social-btn"><i class="fab fa-telegram"></i></a>
+                    <a href="#" class="social-btn"><i class="fab fa-whatsapp"></i></a>
+                </div>
+                <p>کلیه حقوق برای فروشگاه ارزان کالا محفوظ است - ۱۴۰۴</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js"></script>
+    <script>
+        (function(){
+            // ================== دیتابیس کامل محصولات با لینک‌های واقعی ==================
+            const products = [
+                {id:1,name:"گوشی سامسونگ Galaxy A54",category:"mobile",price:18900000,oldPrice:22000000,image:"https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-a54-5g.jpg",stock:18,rating:4.5,specs:{"صفحه نمایش":"6.4 اینچ Super AMOLED","دوربین":"50 مگاپیکسل","رم":"8 گیگابایت","حافظه":"256 گیگابایت","باتری":"5000 میلی‌آمپر","پردازنده":"Exynos 1380","وزن":"202 گرم"}},
+                {id:2,name:"گوشی شیائومی Redmi Note 13 Pro",category:"mobile",price:16900000,oldPrice:19500000,image:"https://fdn2.gsmarena.com/vv/bigpic/xiaomi-redmi-note-13-pro-5g.jpg",stock:25,rating:4.7,specs:{"صفحه نمایش":"6.67 اینچ AMOLED","دوربین":"200 مگاپیکسل","رم":"8 گیگابایت","حافظه":"256 گیگابایت","باتری":"5000 میلی‌آمپر","پردازنده":"Helio G99 Ultra","وزن":"187 گرم"}},
+                {id:3,name:"گوشی اپل iPhone 13",category:"mobile",price:38900000,oldPrice:42000000,image:"https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-13.jpg",stock:8,rating:4.9,specs:{"صفحه نمایش":"6.1 اینچ Super Retina","دوربین":"12 مگاپیکسل دوگانه","رم":"4 گیگابایت","حافظه":"128 گیگابایت","باتری":"3240 میلی‌آمپر","پردازنده":"A15 Bionic","وزن":"174 گرم"}},
+                {id:4,name:"تبلت سامسونگ Galaxy Tab S9",category:"tablet",price:38900000,oldPrice:42500000,image:"https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-tab-s9-.jpg",stock:12,rating:4.6,specs:{"صفحه نمایش":"11 اینچ AMOLED","دوربین":"13 مگاپیکسل","رم":"8 گیگابایت","حافظه":"256 گیگابایت","باتری":"8000 میلی‌آمپر","پردازنده":"Snapdragon 8 Gen 2","وزن":"498 گرم"}},
+                {id:5,name:"گوشی Poco X6 Pro",category:"mobile",price:18900000,oldPrice:21000000,image:"https://fdn2.gsmarena.com/vv/bigpic/xiaomi-poco-x6-pro-5g.jpg",stock:18,rating:4.4,specs:{"صفحه نمایش":"6.7 اینچ AMOLED","دوربین":"108 مگاپیکسل","رم":"12 گیگابایت","حافظه":"512 گیگابایت","باتری":"5000 میلی‌آمپر","پردازنده":"Dimensity 8300 Ultra","وزن":"186 گرم"}},
+                {id:6,name:"لپ تاپ ایسوس VivoBook 15",category:"laptop",price:26800000,oldPrice:29500000,image:"https://dlcdnwebimgs.asus.com/gain/4a7b3a7e-3f8d-4b3f-9f3d-3f3d3f3d3f3d/w717",stock:10,rating:4.3,specs:{"صفحه نمایش":"15.6 اینچ FHD IPS","رم":"16 گیگابایت","حافظه":"512 گیگابایت SSD","پردازنده":"Intel Core i5-1235U","باتری":"42 وات ساعت","وزن":"1.7 کیلوگرم","گرافیک":"Intel Iris Xe"}},
+                {id:7,name:"لپ تاپ لنوو IdeaPad Gaming 3",category:"laptop",price:28900000,oldPrice:32500000,image:"https://p1-ofp.static.pub/medias/bWFzdGVyfHJvb3R8MjI2NTIwfGltYWdlL3BuZ3xoYzAvaDM1LzExMjM0NTY3ODkwMTEwLnBuZ3w5YjY5YjY5YjY5YjY5YjY5Yg/lenovo-ideapad-gaming-3.png",stock:7,rating:4.5,specs:{"صفحه نمایش":"15.6 اینچ FHD 120Hz","رم":"16 گیگابایت","حافظه":"512 گیگابایت SSD","پردازنده":"Intel Core i5-12450H","باتری":"45 وات ساعت","وزن":"2.2 کیلوگرم","گرافیک":"RTX 3050"}},
+                {id:8,name:"لپ تاپ اپل MacBook Air M2",category:"laptop",price:58900000,oldPrice:62900000,image:"https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/macbook-air-midnight-select-20220606?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1654122317566",stock:5,rating:4.9,specs:{"صفحه نمایش":"13.6 اینچ Liquid Retina","رم":"8 گیگابایت","حافظه":"256 گیگابایت SSD","پردازنده":"Apple M2","باتری":"تا 18 ساعت","وزن":"1.24 کیلوگرم","گرافیک":"8 هسته‌ای"}},
+                {id:9,name:"مانیتور ال جی 27 اینچ UltraGear",category:"monitor",price:15900000,oldPrice:17500000,image:"https://www.lg.com/content/dam/channel/wcms/in/images/monitors/27gn800-b_ati_eail371843_350x350.png",stock:14,rating:4.6,specs:{"صفحه نمایش":"27 اینچ IPS","رزولوشن":"Full HD","نرخ تازه‌سازی":"144Hz","زمان پاسخگویی":"1ms","پورت‌ها":"HDMI, DisplayPort","فناوری":"AMD FreeSync"}},
+                {id:10,name:"هدفون بلوتوثی JBL Tune 760NC",category:"accessory",price:5200000,oldPrice:5900000,image:"https://m.media-amazon.com/images/I/61i6qQcFJqL._AC_SL1500_.jpg",stock:25,rating:4.7,specs:{"نوع":"روی گوشی","باتری":"35 ساعت","نویز کنسلینگ":"فعال","وزن":"220 گرم","فرکانس":"20Hz-20kHz","اتصال":"بلوتوث 5.0"}},
+                {id:11,name:"کیبورد و موس لاجیتک MK270",category:"accessory",price:1650000,oldPrice:1890000,image:"https://m.media-amazon.com/images/I/61fUJgLQ5uL._AC_SL1500_.jpg",stock:30,rating:4.4,specs:{"نوع":"Wireless","باتری":"24 ماه","برد":"10 متر","کیبورد":"دارای 8 کلید مالتی مدیا","موس":"1000 dpi"}},
+                {id:12,name:"پاور بانک انکر 20000mAh",category:"accessory",price:2150000,oldPrice:2450000,image:"https://m.media-amazon.com/images/I/71x1UqQZQxL._AC_SL1500_.jpg",stock:20,rating:4.5,specs:{"ظرفیت":"20000 میلی‌آمپر","شارژ سریع":"22.5 وات","خروجی":"USB-C, USB-A"}},
+                {id:13,name:"هارد اکسترنال وسترن دیجیتال 2TB",category:"accessory",price:3750000,oldPrice:4200000,image:"https://m.media-amazon.com/images/I/81B1oU8MlSL._AC_SL1500_.jpg",stock:15,rating:4.6,specs:{"ظرفیت":"2 ترابایت","نوع":"External HDD","پورت":"USB 3.0"}},
+                {id:14,name:"وب کم لاجیتک C920s",category:"accessory",price:3950000,oldPrice:4350000,image:"https://m.media-amazon.com/images/I/61Vn3SqGv3L._AC_SL1500_.jpg",stock:12,rating:4.7,specs:{"رزولوشن":"1080p Full HD","میکروفون":"استریو","فوکوس":"خودکار"}},
+                {id:15,name:"دوربین کانن EOS 250D",category:"camera",price:26900000,oldPrice:29500000,image:"https://m.media-amazon.com/images/I/71KqLqQq3FL._AC_SL1500_.jpg",stock:9,rating:4.6,specs:{"رزولوشن":"24.1 مگاپیکسل","لنز":"18-55mm","فیلمبرداری":"4K"}},
+                {id:16,name:"دوربین سونی Alpha A6400",category:"camera",price:34900000,oldPrice:37900000,image:"https://m.media-amazon.com/images/I/71mJpXJXqmL._AC_SL1500_.jpg",stock:6,rating:4.8,specs:{"رزولوشن":"24.2 مگاپیکسل","فوکوس":"0.02 ثانیه","فیلمبرداری":"4K"}},
+                {id:17,name:"یخچال فریزر سامسونگ 30 فوت",category:"home",price:48900000,oldPrice:52500000,image:"https://images.samsung.com/is/image/samsung/p6pim/rs/rs30t5201b4-seg/thumb/rs30t5201b4-seg-thumb-53065309?$480_480_PNG$",stock:4,rating:4.7,specs:{"ظرفیت":"30 فوت","کمپرسور":"اینورتر","کلاس انرژی":"A++","یخساز":"اتوماتیک"}},
+                {id:18,name:"ماشین لباسشویی ال جی 9 کیلو",category:"home",price:23500000,oldPrice:25900000,image:"https://www.lg.com/content/dam/channel/wcms/in/images/washing-machines/fhm1209sdw_abwqeil_thumbnail_350x350.png",stock:7,rating:4.5,specs:{"ظرفیت":"9 کیلوگرم","نوع":"درب جلو","موتور":"اینورتر مستقیم","برنامه شستشو":"14 برنامه"}},
+                {id:19,name:"هدفون بی‌سیم اپل AirPods Pro 2",category:"accessory",price:12900000,oldPrice:14500000,image:"https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/MQD83?wid=1144&hei=1144&fmt=jpeg&qlt=90&.v=1660803972361",stock:22,rating:4.9,specs:{"نوع":"درون گوشی","تراشه":"Apple H2","نویز کنسلینگ":"فعال","مقاومت":"IP54"}},
+                {id:20,name:"اسپیکر بلوتوثی JBL Charge 5",category:"accessory",price:6950000,oldPrice:7500000,image:"https://m.media-amazon.com/images/I/71LkCgSJ6oL._AC_SL1500_.jpg",stock:16,rating:4.7,specs:{"توان":"40 وات","باتری":"20 ساعت","مقاومت":"IP67","بلوتوث":"5.1"}},
+                {id:21,name:"مچ‌بند هوشمند شیائومی Mi Band 8",category:"accessory",price:1950000,oldPrice:2250000,image:"https://m.media-amazon.com/images/I/61hF2T4mUvL._AC_SL1500_.jpg",stock:35,rating:4.5,specs:{"صفحه نمایش":"1.62 اینچ AMOLED","باتری":"16 روز","ضد آب":"5ATM","حسگرها":"ضربان قلب، SpO2"}},
+                {id:22,name:"گوشی موبایل نوکیا 105",category:"mobile",price:895000,oldPrice:990000,image:"https://m.media-amazon.com/images/I/71y1d8qQxML._AC_SL1500_.jpg",stock:42,rating:4.2,specs:{"صفحه نمایش":"1.8 اینچ","باتری":"800 میلی‌آمپر","رادیو":"FM","چراغ قوه":"دارد"}},
+                {id:23,name:"تلویزیون سامسونگ 55 اینچ 4K",category:"tv",price:32900000,oldPrice:35900000,image:"https://images.samsung.com/is/image/samsung/p6pim/au/ua55au8000wxxy/gallery/au-uhd-4k-ua55au8000wxxy-531939178?$650_519_PNG$",stock:8,rating:4.8,specs:{"صفحه نمایش":"55 اینچ 4K","پردازنده":"Crystal 4K","سیستم عامل":"Tizen","پورت‌ها":"3 HDMI"}},
+                {id:24,name:"کنترلر بازی ایکس باکس سری X",category:"gaming",price:2450000,oldPrice:2790000,image:"https://m.media-amazon.com/images/I/61yT1qX9zKL._AC_SL1500_.jpg",stock:28,rating:4.8,specs:{"نوع":"بی‌سیم","اتصال":"Xbox Wireless, بلوتوث","باتری":"دو عدد قلمی"}},
+                {id:25,name:"قهوه‌ساز دالیکس Bistro",category:"home",price:6750000,oldPrice:7450000,image:"https://m.media-amazon.com/images/I/71F8XQqQ9JL._AC_SL1500_.jpg",stock:11,rating:4.5,specs:{"نوع":"اسپرسو ساز","مخزن آب":"1.4 لیتر","توان":"1450 وات","فشار پمپ":"15 بار"}}
+            ];
+
+            // ================== سبد خرید و مقایسه ==================
+            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+            let compareList = JSON.parse(localStorage.getItem('compareList')) || [];
+
+            function updateAllBadges(){
+                const cartCount = cart.reduce((sum,i)=>sum+(i.qty||1),0);
+                document.querySelectorAll('#cartTotal, #cartTotalMobile').forEach(el=>{if(el) el.textContent=cartCount;});
+                const compareCount = compareList.length;
+                document.querySelectorAll('#compareCountDesktop, #compareCountMobile').forEach(el=>{if(el) el.textContent=compareCount;});
+                
+                const totalPrice = cart.reduce((sum,i)=>sum+(i.price*(i.qty||1)),0);
+                const priceEl = document.getElementById('cartTotalPrice');
+                if(priceEl) priceEl.textContent = totalPrice.toLocaleString();
+
+                const cartDiv = document.getElementById('cartItems');
+                if(cartDiv){
+                    if(cart.length===0){
+                        cartDiv.innerHTML = '<div class="text-center" style="padding:2rem;">سبد خرید خالی است</div>';
+                    }else{
+                        let html = '';
+                        cart.forEach(item=>{
+                            html += `<div class="cart-item">
+                                <img src="${item.image}" onerror="this.src='https://via.placeholder.com/300x200?text=${encodeURIComponent(item.name)}'">
+                                <div class="cart-item-info">
+                                    <div class="cart-item-name">${item.name}</div>
+                                    <div class="cart-item-price">${item.price.toLocaleString()} تومان</div>
+                                    <div class="cart-qty">
+                                        <button class="qty-btn" onclick="window.changeQty(${item.id}, -1)">-</button>
+                                        <span>${item.qty||1}</span>
+                                        <button class="qty-btn" onclick="window.changeQty(${item.id}, 1)">+</button>
+                                        <button class="remove-btn" onclick="window.removeFromCart(${item.id})"><i class="fa fa-trash"></i></button>
+                                    </div>
+                                </div>
+                            </div>`;
+                        });
+                        cartDiv.innerHTML = html;
+                    }
+                }
+            }
+
+            window.addToCart = (product)=>{
+                const exist = cart.find(i=>i.id===product.id);
+                if(exist) exist.qty = (exist.qty||1)+1;
+                else cart.push({...product, qty:1});
+                localStorage.setItem('cart', JSON.stringify(cart));
+                updateAllBadges();
+                alert('✅ محصول به سبد خرید اضافه شد');
+            };
+
+            window.changeQty = (id, delta)=>{
+                const idx = cart.findIndex(i=>i.id===id);
+                if(idx===-1) return;
+                if(delta===-1 && cart[idx].qty>1) cart[idx].qty--;
+                else if(delta===-1) cart.splice(idx,1);
+                else if(delta===1) cart[idx].qty = (cart[idx].qty||1)+1;
+                localStorage.setItem('cart',JSON.stringify(cart));
+                updateAllBadges();
+            };
+
+            window.removeFromCart = (id)=>{
+                cart = cart.filter(i=>i.id!==id);
+                localStorage.setItem('cart',JSON.stringify(cart));
+                updateAllBadges();
+            };
+
+            window.addToCompare = (product)=>{
+                if(compareList.length>=4) return alert('حداکثر ۴ محصول قابل مقایسه است');
+                if(compareList.find(i=>i.id===product.id)) return alert('این محصول قبلاً اضافه شده');
+                compareList.push({id:product.id, name:product.name, price:product.price, image:product.image, category:product.category});
+                localStorage.setItem('compareList',JSON.stringify(compareList));
+                updateAllBadges();
+                alert('به لیست مقایسه اضافه شد');
+            };
+
+            window.removeFromCompare = (id)=>{
+                compareList = compareList.filter(i=>i.id!==id);
+                localStorage.setItem('compareList',JSON.stringify(compareList));
+                displayCompare();
+                updateAllBadges();
+            };
+
+            document.getElementById('clearCartBtn')?.addEventListener('click',()=>{
+                if(confirm('همه آیتم‌ها حذف شوند؟')){
+                    cart = [];
+                    localStorage.setItem('cart',JSON.stringify(cart));
+                    updateAllBadges();
+                }
+            });
+
+            document.getElementById('clearCompareBtn')?.addEventListener('click',()=>{
+                if(confirm('همه محصولات از لیست مقایسه حذف شوند؟')){
+                    compareList = [];
+                    localStorage.setItem('compareList',JSON.stringify(compareList));
+                    displayCompare();
+                    updateAllBadges();
+                }
+            });
+
+            document.getElementById('payBtn')?.addEventListener('click',(e)=>{
+                if(cart.length===0){
+                    e.preventDefault();
+                    alert('سبد خرید خالی است');
+                }
+            });
+
+            // ================== منوی همبرگر ==================
+            const hamburger = document.getElementById('hamburgerBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+            if(hamburger && mobileMenu){
+                hamburger.addEventListener('click',()=>{
+                    mobileMenu.classList.toggle('active');
+                });
+            }
+
+            // ================== سبد خرید کشویی ==================
+            const cartBtn = document.getElementById('cartToggleBtn');
+            const cartMenu = document.getElementById('cartMenu');
+            if(cartBtn && cartMenu){
+                cartBtn.addEventListener('click',(e)=>{
+                    e.stopPropagation();
+                    cartMenu.classList.toggle('active');
+                    mobileMenu.classList.remove('active');
+                });
+                document.addEventListener('click',(e)=>{
+                    if(!cartMenu.contains(e.target) && !cartBtn.contains(e.target)){
+                        cartMenu.classList.remove('active');
+                    }
+                });
+            }
+
+            // ================== نمایش مقایسه ==================
+            const compareContainer = document.getElementById('compareContainer');
+
+            function displayCompare(){
+                if(compareList.length === 0){
+                    compareContainer.innerHTML = `
+                        <div class="empty-compare">
+                            <i class="fa fa-balance-scale"></i>
+                            <h2>لیست مقایسه خالی است</h2>
+                            <p>برای مقایسه محصولات، از صفحه محصولات به لیست مقایسه اضافه کنید</p>
+                            <a href="category.html" class="btn-primary" style="padding:1rem 3rem;text-decoration:none;">مشاهده محصولات</a>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const compareProducts = compareList.map(c => products.find(p => p.id === c.id)).filter(p => p);
+                
+                // جمع‌آوری تمام کلیدهای مشخصات
+                const allSpecKeys = new Set();
+                compareProducts.forEach(p => {
+                    if(p.specs){
+                        Object.keys(p.specs).forEach(k => allSpecKeys.add(k));
+                    }
+                });
+                const specKeys = Array.from(allSpecKeys);
+
+                let tableHtml = '<table class="compare-table"><tr><th>مشخصات</th>';
+                compareProducts.forEach(p => {
+                    tableHtml += `<th>${p.name}</th>`;
+                });
+                tableHtml += '</tr>';
+
+                // ردیف تصویر
+                tableHtml += '<tr><td>تصویر</td>';
+                compareProducts.forEach(p => {
+                    tableHtml += `<td>
+                        <img src="${p.image}" class="compare-product-img" onerror="this.src='https://via.placeholder.com/300x200?text=${encodeURIComponent(p.name)}'">
+                        <div class="compare-product-name">${p.name}</div>
+                        <div class="compare-product-price">${p.price.toLocaleString()} تومان</div>
+                        <div class="compare-actions">
+                            <button class="btn-sm btn-success" onclick='addToCart(${JSON.stringify({id:p.id,name:p.name,price:p.price,image:p.image})})'><i class="fa fa-cart-plus"></i> افزودن به سبد</button>
+                            <button class="btn-sm btn-outline-danger" onclick='removeFromCompare(${p.id})'><i class="fa fa-trash"></i> حذف</button>
+                        </div>
+                    </td>`;
+                });
+                tableHtml += '</tr>';
+
+                // ردیف قیمت
+                tableHtml += '<tr><td>قیمت</td>';
+                compareProducts.forEach(p => {
+                    tableHtml += `<td class="feature-match">${p.price.toLocaleString()} تومان</td>`;
+                });
+                tableHtml += '</tr>';
+
+                // ردیف رتبه
+                tableHtml += '<tr><td>امتیاز</td>';
+                compareProducts.forEach(p => {
+                    tableHtml += `<td>${p.rating || '---'} <i class="fa fa-star" style="color:#ffc107;"></i></td>`;
+                });
+                tableHtml += '</tr>';
+
+                // ردیف موجودی
+                tableHtml += '<tr><td>موجودی</td>';
+                compareProducts.forEach(p => {
+                    const className = p.stock > 0 ? 'feature-match' : 'feature-mismatch';
+                    tableHtml += `<td class="${className}">${p.stock > 0 ? p.stock + ' عدد' : 'ناموجود'}</td>`;
+                });
+                tableHtml += '</tr>';
+
+                // ردیف‌های مشخصات
+                specKeys.forEach(key => {
+                    tableHtml += `<tr><td>${key}</td>`;
+                    compareProducts.forEach(p => {
+                        const value = p.specs && p.specs[key] ? p.specs[key] : '---';
+                        tableHtml += `<td>${value}</td>`;
+                    });
+                    tableHtml += '</tr>';
+                });
+
+                tableHtml += '</table>';
+                compareContainer.innerHTML = tableHtml;
+            }
+
+            displayCompare();
+
+            // ================== مقداردهی اولیه ==================
+            updateAllBadges();
+
+            window.addEventListener('storage',()=>{
+                cart = JSON.parse(localStorage.getItem('cart')) || [];
+                compareList = JSON.parse(localStorage.getItem('compareList')) || [];
+                updateAllBadges();
+                displayCompare();
+            });
+        })();
+    </script>
+</body>
+</html>
