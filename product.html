@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>جزئیات محصول | ارزان کالا</title>
+
+    <link rel="stylesheet" href="./css/bootstrap.rtl.min.css">
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top py-2" style="background: #050606; border-bottom: 2px solid #008040;">
+        <div class="w-100 px-3 px-lg-4">
+            <div class="d-flex align-items-center justify-content-between w-100">
+                <a class="navbar-brand fw-bold" href="./index.html">
+                    <i class="fa fa-store"></i> ارزان‌کالا
+                </a>
+
+                <div class="dropdown d-none d-lg-block mx-3">
+                    <button class="btn dropdown-toggle text-white d-flex align-items-center"
+                        style="background: #1a1e1d; border: 1px solid #2a2f2e; border-radius: 30px; padding: 0.4rem 1.2rem;"
+                        data-bs-toggle="dropdown">
+                        <i class="fa fa-bars ms-2" style="color: #00c853;"></i> دسته‌بندی
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                        <li><a class="dropdown-item py-2" href="./category.html?category=mobile"><i
+                                    class="fa fa-mobile-alt ms-2" style="color: #00c853;"></i> موبایل</a></li>
+                        <li><a class="dropdown-item py-2" href="./category.html?category=laptop"><i
+                                    class="fa fa-laptop ms-2" style="color: #00c853;"></i> لپ تاپ</a></li>
+                        <li><a class="dropdown-item py-2" href="./category.html?category=accessory"><i
+                                    class="fa fa-headphones ms-2" style="color: #00c853;"></i> لوازم جانبی</a></li>
+                    </ul>
+                </div>
+
+                <div class="collapse navbar-collapse" id="navbarMain">
+                    <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
+                        <li class="nav-item"><a class="nav-link px-3" href="./index.html"><i class="fa fa-home ms-1"
+                                    style="color: #00c853;"></i> خانه</a></li>
+                        <li class="nav-item"><a class="nav-link px-3" href="./category.html"><i class="fa fa-store ms-1"
+                                    style="color: #00c853;"></i> محصولات</a></li>
+                        <li class="nav-item"><a class="nav-link px-3" href="./choose.html"><i class="fa fa-robot ms-1"
+                                    style="color: #00c853;"></i> پیشنهاد</a></li>
+                        <li class="nav-item"><a class="nav-link px-3" href="./compare.html"><i
+                                    class="fa fa-balance-scale ms-1" style="color: #00c853;"></i> <span class="compare-wrapper">مقایسه <span
+                                    class="badge bg-success compare-counter ms-1" id="compareCount"
+                                    style="background: #00c853;">0</span></span></a></li>
+                        <li class="nav-item d-lg-none"><a class="nav-link px-3" href="./register.html"><i
+                                    class="fa fa-user ms-1" style="color: #00c853;"></i> ورود</a></li>
+                    </ul>
+
+                    <div class="d-flex align-items-center gap-3 w-100">
+                        <form class="d-flex w-100" action="category.html" method="GET" style="position: relative;"
+                            onsubmit="event.preventDefault(); var s=this.querySelector('input').value; if(s) window.location='category.html?search='+encodeURIComponent(s); else alert('لطفاً متن جستجو را وارد کنید');">
+                            <input type="text" name="search" class="form-control" placeholder="جستجو..."
+                                style="background: #1a1e1d; border: 1px solid #2a2f2e; color: white; border-radius: 30px; padding: 0.4rem 1rem 0.4rem 2.2rem; width: 100%;">
+                            <button type="submit"
+                                style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #00c853;"><i
+                                    class="fa fa-search"></i></button>
+                        </form>
+                        <a href="./register.html" class="login-btn d-none d-lg-flex">
+                            <i class="fa fa-user"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                    <div class="cart__count position-relative">
+                        <button class="btn btn-link text-white p-0" id="cartToggleBtn">
+                            <i class="fa fa-shopping-cart" style="color: #00c853; font-size: 1.3rem;"></i>
+                            <span
+                                class="total__counter position-absolute top-0 start-100 translate-middle badge rounded-pill"
+                                style="background: #00c853;">0</span>
+                        </button>
+                    </div>
+                    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#navbarMain" id="navbarToggler">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="cart-menu-wrapper" id="cartMenu" style="margin-top: 1rem;">
+        <div class="container">
+            <div class="row justify-content-end">
+                <div class="col-12 col-lg-4">
+                    <div class="cart">
+                        <div class="cart-header">
+                            <h5 class="mb-0"><i class="fa fa-shopping-cart me-2"></i> سبد خرید شما</h5>
+                        </div>
+                        <div class="cart-body">
+                            <div class="cart__items"></div>
+                            <div class="cart-summary">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <span class="fw-bold fs-5 text-white">مجموع :</span>
+                                    <span class="total__cost fs-4 fw-bold">0</span>
+                                    <span class="text-white-50">تومان</span>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-danger-custom flex-grow-1 removeAllItems"><i
+                                            class="fa fa-trash me-1"></i> حذف همه</button>
+                                    <a id="goToCheckout" class="btn btn-warning-custom flex-grow-1" href="./buy.html"><i
+                                            class="fa fa-credit-card me-1"></i> پرداخت</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container py-4" style="margin-top: 6rem;">
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <img id="mainImage" src="./" alt="محصول" class="img-fluid w-100">
+            </div>
+
+            <div class="col-md-6">
+                <h2 id="productName" class="fw-bold mb-3"></h2>
+
+                <div class="mb-3">
+                    <span id="productPrice" class="h1 text-success fw-bold"></span>
+                    <span id="productOldPrice" class="text-muted text-decoration-line-through me-2" style="display: none;"></span>
+                    <span id="discountBadge" class="badge bg-danger" style="display: none;"></span>
+                </div>
+
+                <div id="stockInfo" class="mb-4"></div>
+                <p id="productDesc" class="mb-4"></p>
+
+                <button id="addToCartBtn" class="btn btn-success btn-lg w-100 mb-3">
+                    <i class="fa fa-cart-plus"></i> افزودن به سبد خرید
+                </button>
+
+                <a href="./category.html" class="btn btn-outline-secondary w-100">
+                    <i class="fa fa-arrow-right"></i> بازگشت به محصولات
+                </a>
+            </div>
+        </div>
+
+        <div class="row mt-5">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fa fa-list me-2"></i> مشخصات فنی</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table">
+                            <tbody id="specsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-5">
+            <div class="col-12">
+                <h4 class="fw-bold mb-4">
+                    <i class="fa fa-tags text-success me-2"></i> محصولات مشابه
+                </h4>
+                <div class="row g-3" id="relatedProducts"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="./js/bootstrap.bundle.js"></script>
+    <script src="./js/all.min.js"></script>
+    <script src="./js/products-data.js"></script>
+    <script src="./js/shop-cart.js"></script>
+    <script src="./js/product.js"></script>
+    <script src="./js/advisor.js"></script>
+
+
+</body>
+<section id="end" class="py-5 mt-5" style="background: linear-gradient(180deg, #0a0c0b 0%, #111413 100%);">
+    <div class="container">
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="p-4 p-lg-5" style="background: rgba(17,20,19,0.9); backdrop-filter: blur(10px); border: 1px solid rgba(0,200,83,0.3); border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+                    <div class="row align-items-center">
+                        <div class="col-lg-6 mb-4 mb-lg-0">
+                            <h4 class="text-white fw-bold mb-2" style="font-size: 1.8rem; text-shadow: 0 2px 10px rgba(0,200,83,0.3);">
+                                <i class="fa fa-bolt ms-2" style="color: #00c853; filter: drop-shadow(0 0 8px #00c853);"></i>
+                                تخفیف‌ها رو از دست نده!
+                            </h4>
+                            <p class="mb-0" style="color: #c0c0c0; font-size: 1.1rem;">اولین نفری باش که از جشنواره‌ها خبردار میشه</p>
+                        </div>
+                        <div class="col-lg-6">
+                            <form class="d-flex flex-column flex-sm-row gap-2" id="newsletterForm">
+                                <input type="email" class="form-control" id="newsletterEmail" placeholder="ایمیلت رو بنویس" required style="background: #0a0c0b; border: 1px solid #2a2f2e; color: white; padding: 14px 20px; border-radius: 50px; font-size: 1rem; height: 52px; transition: all 0.3s;">
+                                <button type="submit" class="btn px-4" id="newsletterBtn" style="background: #00c853; color: white; border: none; border-radius: 50px; font-weight: 700; padding: 0 30px; font-size: 1rem; height: 52px; white-space: nowrap; transition: all 0.3s; box-shadow: 0 5px 20px rgba(0,200,83,0.3);">
+                                    <i class="fa fa-paper-plane ms-2"></i>
+                                    عضویت
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="row gy-4">
+            <div class="col-lg-3 col-md-6">
+                <div class="footer-widget" style="transition: all 0.3s;">
+                    <h5 class="text-white fw-bold mb-4" style="border-right: 4px solid #00c853; padding-right: 15px; font-size: 1.2rem;">
+                        <i class="fa fa-store ms-2" style="color: #00c853;"></i>
+                        ارزان کالا
+                    </h5>
+                    <p style="color: #b0b0b0; line-height: 1.9; font-size: 0.95rem;">
+                        فروشگاه آنلاین با 10 سال سابقه درخشان. اصالت کالا تضمینی، ارسال اکسپرس به سراسر ایران.
+                    </p>
+                    <div class="mt-4">
+                        <span class="d-inline-block ms-3 mb-2" style="color: #00c853; font-size: 0.95rem;"><i class="fa fa-check-circle ms-1"></i> ضمانت اصالت</span>
+                        <span class="d-inline-block ms-3 mb-2" style="color: #00c853; font-size: 0.95rem;"><i class="fa fa-truck ms-1"></i> ارسال سریع</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-3 col-md-6">
+                <div>
+                    <h5 class="text-white fw-bold mb-4" style="border-right: 4px solid #00c853; padding-right: 15px; font-size: 1.2rem;">
+                        <i class="fa fa-link ms-2" style="color: #00c853;"></i>
+                        لینک‌های مفید
+                    </h5>
+                    <ul class="list-unstyled">
+                        <li class="mb-3"><a href="./#" class="text-decoration-none footer-link" style="color: #b0b0b0; font-size: 0.95rem; transition: all 0.3s; display: inline-block;"><i class="fa fa-angle-left ms-2" style="color: #00c853;"></i> درباره ما</a></li>
+                        <li class="mb-3"><a href="./#" class="text-decoration-none footer-link" style="color: #b0b0b0; font-size: 0.95rem; transition: all 0.3s; display: inline-block;"><i class="fa fa-angle-left ms-2" style="color: #00c853;"></i> تماس با ما</a></li>
+                        <li class="mb-3"><a href="./#" class="text-decoration-none footer-link" style="color: #b0b0b0; font-size: 0.95rem; transition: all 0.3s; display: inline-block;"><i class="fa fa-angle-left ms-2" style="color: #00c853;"></i> قوانین و مقررات</a></li>
+                        <li class="mb-3"><a href="./#" class="text-decoration-none footer-link" style="color: #b0b0b0; font-size: 0.95rem; transition: all 0.3s; display: inline-block;"><i class="fa fa-angle-left ms-2" style="color: #00c853;"></i> حریم خصوصی</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-lg-3 col-md-6">
+                <div>
+                    <h5 class="text-white fw-bold mb-4" style="border-right: 4px solid #00c853; padding-right: 15px; font-size: 1.2rem;">
+                        <i class="fa fa-tags ms-2" style="color: #00c853;"></i>
+                        دسته‌بندی‌ها
+                    </h5>
+                    <ul class="list-unstyled">
+                        <li class="mb-3"><a href="./category.html?category=mobile" class="text-decoration-none footer-link" style="color: #b0b0b0; font-size: 0.95rem;"><i class="fa fa-angle-left ms-2" style="color: #00c853;"></i> موبایل و تبلت</a></li>
+                        <li class="mb-3"><a href="./category.html?category=laptop" class="text-decoration-none footer-link" style="color: #b0b0b0; font-size: 0.95rem;"><i class="fa fa-angle-left ms-2" style="color: #00c853;"></i> لپ تاپ و کامپیوتر</a></li>
+                        <li class="mb-3"><a href="./category.html?category=accessory" class="text-decoration-none footer-link" style="color: #b0b0b0; font-size: 0.95rem;"><i class="fa fa-angle-left ms-2" style="color: #00c853;"></i> لوازم جانبی</a></li>
+                        <li class="mb-3"><a href="./category.html?category=home" class="text-decoration-none footer-link" style="color: #b0b0b0; font-size: 0.95rem;"><i class="fa fa-angle-left ms-2" style="color: #00c853;"></i> لوازم خانگی</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-lg-3 col-md-6">
+                <div>
+                    <h5 class="text-white fw-bold mb-4" style="border-right: 4px solid #00c853; padding-right: 15px; font-size: 1.2rem;">
+                        <i class="fa fa-address-book ms-2" style="color: #00c853;"></i>
+                        راه‌های ارتباطی
+                    </h5>
+                    <ul class="list-unstyled">
+                        <li class="mb-3 d-flex align-items-center">
+                            <i class="fa fa-map-marker-alt ms-2" style="color: #00c853; width: 25px; font-size: 1rem;"></i>
+                            <span style="color: #b0b0b0; font-size: 0.95rem;">تهران، خیابان ولیعصر، پلاک ۱۲۳</span>
+                        </li>
+                        <li class="mb-3 d-flex align-items-center">
+                            <i class="fa fa-phone ms-2" style="color: #00c853; width: 25px; font-size: 1rem;"></i>
+                            <span style="color: #b0b0b0; font-size: 0.95rem;">۰۲۱-۱۲۳۴۵۶۷۸</span>
+                        </li>
+                        <li class="mb-3 d-flex align-items-center">
+                            <i class="fa fa-envelope ms-2" style="color: #00c853; width: 25px; font-size: 1rem;"></i>
+                            <span style="color: #b0b0b0; font-size: 0.95rem;">info@arzankala.com</span>
+                        </li>
+                        <li class="mb-3 d-flex align-items-center">
+                            <i class="fa fa-clock ms-2" style="color: #00c853; width: 25px; font-size: 1rem;"></i>
+                            <span style="color: #b0b0b0; font-size: 0.95rem;">۷ روز هفته، ۲۴ ساعته</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <hr style="border-color: #2a2f2e; margin: 40px 0; opacity: 0.3;">
+
+        <div class="row align-items-center">
+            <div class="col-md-6 mb-4 mb-md-0">
+                <div class="d-flex gap-2">
+                    <a href="./#" class="btn btn-outline-success social-btn me-2" style="border-radius: 50%; width: 45px; height: 45px; padding: 0; line-height: 43px; text-align: center; border-width: 2px; transition: all 0.3s;">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="./#" class="btn btn-outline-success social-btn me-2" style="border-radius: 50%; width: 45px; height: 45px; padding: 0; line-height: 43px; text-align: center; border-width: 2px; transition: all 0.3s;">
+                        <i class="fab fa-telegram"></i>
+                    </a>
+                    <a href="./#" class="btn btn-outline-success social-btn me-2" style="border-radius: 50%; width: 45px; height: 45px; padding: 0; line-height: 43px; text-align: center; border-width: 2px; transition: all 0.3s;">
+                        <i class="fab fa-whatsapp"></i>
+                    </a>
+                    <a href="./#" class="btn btn-outline-success social-btn" style="border-radius: 50%; width: 45px; height: 45px; padding: 0; line-height: 43px; text-align: center; border-width: 2px; transition: all 0.3s;">
+                        <i class="fab fa-twitter"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-6 text-md-start text-center">
+                <p class="mb-0" style="color: #808080; font-size: 0.9rem;">
+                    <i class="fa fa-copyright me-1" style="color: #00c853;"></i>
+                    کلیه حقوق مادی و معنوی برای فروشگاه ارزان کالا محفوظ است - ۱۴۰۴
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+</html>
