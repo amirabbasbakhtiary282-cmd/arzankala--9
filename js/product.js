@@ -610,7 +610,16 @@ function displayFeatureCards(product) {
 let priceHistoryChartInstance = null;
 let priceHistoryRange = '3m';
 
-function loadPriceHistoryChart(productId) {
+window.loadPriceHistoryChart = function(productId) {
+    if (priceHistoryRange) {
+        // priceHistoryRange is already a module-level variable
+    }
+    loadPriceHistoryChartInternal(productId);
+};
+
+window.priceHistoryRange = '3m';
+
+function loadPriceHistoryChartInternal(productId) {
     const canvas = document.getElementById('priceHistoryChart');
     if (!canvas) return;
 
@@ -730,13 +739,14 @@ function loadPriceHistoryChart(productId) {
 
 window.setPriceRange = function(range) {
     priceHistoryRange = range;
+    window.priceHistoryRange = range;
     document.querySelectorAll('#priceHistorySection .btn-outline-success').forEach(function(b) { b.classList.remove('active'); });
     var target = event && event.target;
     if (!target) {
         target = document.querySelector('#priceHistorySection .btn-outline-success[onclick*="' + range + '"]');
     }
     if (target) target.classList.add('active');
-    loadPriceHistoryChart(currentProductId);
+    loadPriceHistoryChartInternal(currentProductId);
 };
 
 function loadQandA(productId) {

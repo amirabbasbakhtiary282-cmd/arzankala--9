@@ -877,88 +877,16 @@
     }
     </script>
 
-    <!-- Price History Chart Init -->
+    <!-- Price History Chart range buttons -->
     <script>
-    function initPriceHistoryChart() {
-        const ctx = document.getElementById('priceHistoryChart');
-        if (!ctx) return;
-        const months = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
-        const priceData = [18500000,18200000,17800000,17500000,17200000,17000000,17400000,17100000,16800000,17200000,16990000,16990000];
-        const avgPrice = priceData.reduce(function(a,b){return a+b;},0)/priceData.length;
-        const avgData = Array(12).fill(avgPrice);
-        new Chart(ctx, {
-            type:'line',
-            data:{
-                labels:months.slice(0,priceData.length),
-                datasets:[
-                    {
-                        label:'قیمت (تومان)',
-                        data:priceData,
-                        borderColor:'#00e676',
-                        backgroundColor:'rgba(0,230,118,0.1)',
-                        fill:true,
-                        tension:0.4,
-                        pointRadius:4,
-                        pointBackgroundColor:'#00e676',
-                        borderWidth:2
-                    },
-                    {
-                        label:'میانگین',
-                        data:avgData,
-                        borderColor:'#40c4ff',
-                        borderDash:[5,5],
-                        pointRadius:0,
-                        borderWidth:1.5,
-                        fill:false
-                    }
-                ]
-            },
-            options:{
-                responsive:true,
-                maintainAspectRatio:false,
-                plugins:{
-                    legend:{
-                        display:false
-                    },
-                    tooltip:{
-                        backgroundColor:'rgba(18,26,22,0.95)',
-                        titleColor:'#fff',
-                        bodyColor:'#e0e0e0',
-                        borderColor:'#00e676',
-                        borderWidth:1,
-                        cornerRadius:10,
-                        callbacks:{
-                            label:function(c){
-                                return c.dataset.label+': '+c.parsed.y.toLocaleString('fa-IR')+' تومان';
-                            }
-                        }
-                    }
-                },
-                scales:{
-                    x:{
-                        grid:{color:'rgba(0,230,118,0.05)'},
-                        ticks:{color:'#9e9e9e',font:{size:11}}
-                    },
-                    y:{
-                        grid:{color:'rgba(0,230,118,0.05)'},
-                        ticks:{
-                            color:'#9e9e9e',
-                            font:{size:11},
-                            callback:function(v){return (v/1000000).toFixed(1)+'M';}
-                        }
-                    }
-                }
-            }
-        });
-    }
     function setPriceRange(range) {
         document.querySelectorAll('#priceHistorySection .btn-outline-success').forEach(function(b){b.classList.remove('active');});
         event.target.classList.add('active');
-        initPriceHistoryChart();
+        if (window.loadPriceHistoryChart) {
+            window.priceHistoryRange = range;
+            window.loadPriceHistoryChart(window.currentProductId);
+        }
     }
-    document.addEventListener('DOMContentLoaded', function(){
-        setTimeout(initPriceHistoryChart, 500);
-    });
     </script>
 
     <!-- Recently Viewed Products -->
