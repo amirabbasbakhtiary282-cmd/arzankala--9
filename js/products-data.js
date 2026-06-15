@@ -7,7 +7,7 @@ const productsDatabase = [
         oldPrice: 22000000,
         image: "a54.jpg",
         stock: 18,
-        rating: 4.5,
+        ratingCount: 0,
         description: "گوشی هوشمند میان رده با صفحه نمایش Super AMOLED 6.4 اینچی، دوربین 50 مگاپیکسل و باتری 5000 میلی‌آمپر",
         specs: {
             "صفحه نمایش": "6.4 اینچ Super AMOLED 120Hz",
@@ -31,7 +31,7 @@ const productsDatabase = [
         oldPrice: 19500000,
         image: "redmi13pro.jpg",
         stock: 25,
-        rating: 4.7,
+        ratingCount: 0,
         description: "گوشی پرفروش با دوربین 200 مگاپیکسل و نمایشگر AMOLED 120 هرتز",
         specs: {
             "صفحه نمایش": "6.67 اینچ AMOLED 120Hz",
@@ -55,7 +55,7 @@ const productsDatabase = [
         oldPrice: 42000000,
         image: "iphone13.jpg",
         stock: 8,
-        rating: 4.9,
+        ratingCount: 0,
         description: "آیفون 13 با تراشه A15 Bionic و دوربین دوگانه پیشرفته",
         specs: {
             "صفحه نمایش": "6.1 اینچ Super Retina XDR",
@@ -76,9 +76,9 @@ const productsDatabase = [
         category: "tablet",
         price: 38900000,
         oldPrice: 42500000,
-        image: "tabS9.jpg",
+        image: "tabs9.jpg",
         stock: 12,
-        rating: 4.6,
+        ratingCount: 0,
         description: "تبلت پرچمدار با صفحه نمایش AMOLED و قلم S-Pen",
         specs: {
             "صفحه نمایش": "11 اینچ AMOLED 120Hz",
@@ -101,7 +101,7 @@ const productsDatabase = [
         oldPrice: 21000000,
         image: "pocoX6Pro.jpg",
         stock: 18,
-        rating: 4.4,
+        ratingCount: 0,
         description: "گوشی اقتصادی با دوربین 108 مگاپیکسل و باتری 5000 میلی‌آمپر",
         specs: {
             "صفحه نمایش": "6.7 اینچ AMOLED 120Hz",
@@ -125,7 +125,7 @@ const productsDatabase = [
         oldPrice: 29500000,
         image: "vivobook15.jpg",
         stock: 10,
-        rating: 4.3,
+        ratingCount: 0,
         description: "لپ تاپ سبک با پردازنده Intel Core i5 و 16 گیگابایت رم",
         specs: {
             "پردازنده": "Intel Core i5-1235U",
@@ -148,7 +148,7 @@ const productsDatabase = [
         oldPrice: 32500000,
         image: "ideapadGaming3.jpg",
         stock: 7,
-        rating: 4.5,
+        ratingCount: 0,
         description: "لپ تاپ گیمینگ با کارت گرافیک NVIDIA RTX 3050",
         specs: {
             "پردازنده": "Intel Core i5-12450H",
@@ -171,7 +171,7 @@ const productsDatabase = [
         oldPrice: 62900000,
         image: "macbookAirM2.jpg",
         stock: 5,
-        rating: 4.9,
+        ratingCount: 0,
         description: "لپ تاپ فوق العاده سبک و قدرتمند با تراشه Apple M2",
         specs: {
             "پردازنده": "Apple M2 (8 هسته‌ای)",
@@ -194,7 +194,7 @@ const productsDatabase = [
         oldPrice: 17500000,
         image: "ultragear27.jpg",
         stock: 14,
-        rating: 4.6,
+        ratingCount: 0,
         description: "مانیتور گیمینگ 27 اینچی با نرخ تازه‌سازی 144 هرتز",
         specs: {
             "صفحه نمایش": "27 اینچ IPS",
@@ -217,7 +217,7 @@ const productsDatabase = [
         oldPrice: 5900000,
         image: "jbl760nc.jpg",
         stock: 25,
-        rating: 4.7,
+        ratingCount: 0,
         description: "هدفون نویز کنسلینگ فعال با کیفیت صدای عالی",
         specs: {
             "نوع": "روی گوشی",
@@ -240,7 +240,7 @@ const productsDatabase = [
         oldPrice: 1890000,
         image: "logitechMK270.jpg",
         stock: 30,
-        rating: 4.4,
+        ratingCount: 0,
         description: "ست کیبورد و موس بی‌سیم با یک دریافت‌کننده",
         specs: {
             "نوع": "Wireless",
@@ -263,7 +263,7 @@ const productsDatabase = [
         oldPrice: 2450000,
         image: "anker20000.jpg",
         stock: 20,
-        rating: 4.5,
+        ratingCount: 0,
         description: "پاور بانک پرظرفیت با شارژ سریع و دو پورت خروجی",
         specs: {
             "ظرفیت": "20000 میلی‌آمپر",
@@ -286,7 +286,7 @@ const productsDatabase = [
         oldPrice: 4200000,
         image: "wd2tb.jpg",
         stock: 15,
-        rating: 4.6,
+        ratingCount: 0,
         description: "هارد اکسترنال با سرعت بالا و ظرفیت 2 ترابایت",
         specs: {
             "ظرفیت": "2 ترابایت",
@@ -309,7 +309,7 @@ const productsDatabase = [
         oldPrice: 4350000,
         image: "logitechC920.jpg",
         stock: 12,
-        rating: 4.7,
+        ratingCount: 0,
         description: "وب‌کم Full HD با میکروفون استریو و قابلیت حذف نویز",
         specs: {
             "رزولوشن": "1080p Full HD",
@@ -332,7 +332,7 @@ const productsDatabase = [
         oldPrice: 29500000,
         image: "canon250d.jpg",
         stock: 9,
-        rating: 4.6,
+        ratingCount: 0,
         description: "دوربین DSLR با کیفیت بالا و صفحه نمایش چرخان",
         specs: {
             "رزولوشن": "24.1 مگاپیکسل",
@@ -355,7 +355,7 @@ const productsDatabase = [
         oldPrice: 37900000,
         image: "sonyA6400.jpg",
         stock: 6,
-        rating: 4.8,
+        ratingCount: 0,
         description: "دوربین بدون آینه با فوکوس خودکار سریع و فیلمبرداری 4K",
         specs: {
             "رزولوشن": "24.2 مگاپیکسل",
@@ -378,7 +378,7 @@ const productsDatabase = [
         oldPrice: 52500000,
         image: "fridge30.jpg",
         stock: 4,
-        rating: 4.7,
+        ratingCount: 0,
         description: "یخچال فریزر با ظرفیت بالا و تکنولوژی خنک‌کننده چندگانه",
         specs: {
             "ظرفیت": "30 فوت",
@@ -401,7 +401,7 @@ const productsDatabase = [
         oldPrice: 25900000,
         image: "lgWashing9.jpg",
         stock: 7,
-        rating: 4.5,
+        ratingCount: 0,
         description: "ماشین لباسشویی با موتور اینورتر مستقیم و برنامه‌های شستشوی متنوع",
         specs: {
             "ظرفیت": "9 کیلوگرم",
@@ -424,7 +424,7 @@ const productsDatabase = [
         oldPrice: 14500000,
         image: "airpodspro2.jpg",
         stock: 22,
-        rating: 4.9,
+        ratingCount: 0,
         description: "هدفون بی‌سیم با نویز کنسلینگ فعال و تراشه H2",
         specs: {
             "نوع": "درون گوشی",
@@ -447,7 +447,7 @@ const productsDatabase = [
         oldPrice: 7500000,
         image: "jblcharge5.jpg",
         stock: 16,
-        rating: 4.7,
+        ratingCount: 0,
         description: "اسپیکر قابل حمل با باتری قدرتمند و مقاوم در برابر آب",
         specs: {
             "نوع": "بلوتوث قابل حمل",
@@ -470,7 +470,7 @@ const productsDatabase = [
         oldPrice: 2250000,
         image: "miband8.jpg",
         stock: 35,
-        rating: 4.5,
+        ratingCount: 0,
         description: "مچ‌بند هوشمند با نمایشگر AMOLED و ردیابی پیشرفته سلامت",
         specs: {
             "صفحه نمایش": "1.62 اینچ AMOLED 60Hz",
@@ -493,7 +493,7 @@ const productsDatabase = [
         oldPrice: 990000,
         image: "nokia105.jpg",
         stock: 42,
-        rating: 4.2,
+        ratingCount: 0,
         description: "گوشی دکمه‌ای ساده با باتری فوق العاده بادوام و چراغ قوه",
         specs: {
             "صفحه نمایش": "1.8 اینچ رنگی",
@@ -516,7 +516,7 @@ const productsDatabase = [
         oldPrice: 35900000,
         image: "samsungtv55.jpg",
         stock: 8,
-        rating: 4.8,
+        ratingCount: 0,
         description: "تلویزیون هوشمند 4K با کیفیت تصویر عالی و پردازنده قدرتمند",
         specs: {
             "صفحه نمایش": "55 اینچ Crystal UHD",
@@ -539,7 +539,7 @@ const productsDatabase = [
         oldPrice: 2790000,
         image: "xboxcontroller.jpg",
         stock: 28,
-        rating: 4.8,
+        ratingCount: 0,
         description: "دسته بازی بی‌سیم ایکس باکس با طراحی ارگونومیک",
         specs: {
             "نوع": "بی‌سیم",
@@ -562,7 +562,7 @@ const productsDatabase = [
         oldPrice: 7450000,
         image: "bistro.jpg",
         stock: 11,
-        rating: 4.5,
+        ratingCount: 0,
         description: "قهوه‌ساز اسپرسو ساز با مخزن آب و کف‌ساز شیر",
         specs: {
             "نوع": "اسپرسو ساز",

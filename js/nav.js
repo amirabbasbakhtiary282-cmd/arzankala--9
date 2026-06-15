@@ -1,11 +1,11 @@
   document.addEventListener('DOMContentLoaded', function () {
-    var menuLinks = document.querySelectorAll('#myMenu .nav-link');
-    var menuCollapse = document.getElementById('myMenu');
-
+    let menuCollapse = document.getElementById('hmNavbarCollapse');
+    if (!menuCollapse) return;
+    let menuLinks = menuCollapse.querySelectorAll('.nav-link');
     menuLinks.forEach(function(link) {
       link.addEventListener('click', function () {
-        var bsCollapse = new bootstrap.Collapse(menuCollapse, {toggle:false});
-        bsCollapse.hide();
+        let bsCollapse = bootstrap.Collapse.getInstance(menuCollapse);
+        if (bsCollapse) bsCollapse.hide();
       });
     });
   });
