@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="fa-ir" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="فروشگاه اینترنتی ارزان‌کالا - خرید آنلاین انواع موبایل، لپ‌تاپ، تبلت و لوازم جانبی با بهترین قیمت">
+    <meta name="keywords" content="ارزان کالا, فروشگاه اینترنتی, خرید آنلاین, موبایل, لپ تاپ, تبلت, لوازم جانبی">
+    <meta name="robots" content="index, follow">
+    <title>پروفایل کاربری | ارزان کالا</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./img/logo.png">
+    <link rel="stylesheet" href="./css/bootstrap.rtl.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <div class="floating-orb"></div>
+    <div class="floating-orb"></div>
+    <div class="floating-orb"></div>
+    <div class="container page-main">
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <div class="admin-stats-card">
+                    <div class="text-center mb-3">
+                        <div style="width:80px;height:80px;border-radius:50%;background:#00c853;margin:0 auto;display:flex;align-items:center;justify-content:center;">
+                            <i class="fa fa-user fa-3x" style="color:white;"></i>
+                        </div>
+                        <h5 class="text-white mt-2" id="userFullname">---</h5>
+                        <div class="text-muted small" id="userUsername">---</div>
+                    </div>
+                    <div class="text-center mb-3">
+                        <span class="badge bg-success" id="userRole">کاربر</span>
+                    </div>
+                    <div class="text-center mb-3 d-none d-lg-block">
+                        <span style="color:var(--text-muted);font-size:0.85rem" id="profileName"></span>
+                    </div>
+                    <hr style="border-color:#2a2f2e;">
+                    <div class="d-flex justify-content-between text-white-50 small mb-2">
+                        <span><i class="fa fa-envelope ms-1 text-success"></i> ایمیل</span>
+                        <span id="userEmail">---</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-white-50 small mb-2">
+                        <span><i class="fa fa-phone ms-1 text-success"></i> موبایل</span>
+                        <span id="userMobile">---</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-white-50 small">
+                        <span><i class="fa fa-calendar ms-1 text-success"></i> تاریخ عضویت</span>
+                        <span id="userJoinDate">---</span>
+                    </div>
+                    <hr style="border-color:#2a2f2e;">
+                    <button id="logoutBtn" class="btn btn-outline-danger w-100"><i class="fa fa-sign-out-alt ms-1"></i> خروج</button>
+                </div>
+            </div>
+            <div class="col-lg-8">
+                <ul class="nav nav-tabs mb-4" style="border-color:#2a2f2e;">
+                    <li class="nav-item"><button class="nav-link active text-success" style="background:transparent;border-color:#2a2f2e;" onclick="showProfileTab('info')"><i class="fa fa-edit ms-1"></i> ویرایش اطلاعات</button></li>
+                    <li class="nav-item"><button class="nav-link text-white-50" style="background:transparent;border-color:#2a2f2e;" onclick="showProfileTab('addresses')"><i class="fa fa-map-marker ms-1"></i> آدرس‌ها</button></li>
+                    <li class="nav-item"><button class="nav-link text-white-50" style="background:transparent;border-color:#2a2f2e;" onclick="showProfileTab('wishlist')"><i class="fa fa-heart ms-1"></i> علاقه‌مندی‌ها</button></li>
+                    <li class="nav-item"><button class="nav-link text-white-50" style="background:transparent;border-color:#2a2f2e;" onclick="showProfileTab('orders')"><i class="fa fa-receipt ms-1"></i> سفارشات</button></li>
+                </ul>
+
+                <div id="infoTab" class="profile-tab">
+                    <div class="admin-stats-card">
+                        <form id="profileForm">
+                            <div class="row g-3">
+                                <div class="col-md-6"><label class="form-label text-white-50 small">نام کامل</label><input id="editFullname" class="form-control"></div>
+                                <div class="col-md-6"><label class="form-label text-white-50 small">ایمیل</label><input id="editEmail" type="email" class="form-control"></div>
+                                <div class="col-md-6"><label class="form-label text-white-50 small">موبایل</label><input id="editMobile" type="tel" class="form-control"></div>
+                                <div class="col-md-6"><label class="form-label text-white-50 small">سال تولد</label><input id="editBirth" type="number" class="form-control"></div>
+                                <div class="col-12"><button type="submit" class="btn btn-success"><i class="fa fa-save ms-1"></i> ذخیره تغییرات</button></div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div id="addressesTab" class="profile-tab d-none">
+                    <div class="admin-stats-card">
+                        <button class="btn btn-success btn-sm mb-3" onclick="showAddAddress()"><i class="fa fa-plus ms-1"></i> آدرس جدید</button>
+                        <div id="addressesList" class="text-muted small">در حال بارگذاری...</div>
+                    </div>
+                </div>
+                <div id="wishlistTab" class="profile-tab d-none">
+                    <div class="admin-stats-card">
+                        <div id="wishlistList" class="row g-3"></div>
+                    </div>
+                </div>
+                <div id="ordersTab" class="profile-tab d-none">
+                    <div class="admin-stats-card">
+                        <div id="ordersList" class="text-muted small text-center py-4">سفارشی ثبت نشده است</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Address Modal -->
+    <div class="modal fade" id="addressModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">آدرس جدید</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label text-white-50 small">آدرس کامل</label><textarea id="addrFull" class="form-control" rows="2"></textarea></div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6"><label class="form-label text-white-50 small">شهر</label><input id="addrCity" class="form-control"></div>
+                        <div class="col-6"><label class="form-label text-white-50 small">کد پستی</label><input id="addrPostal" class="form-control"></div>
+                    </div>
+                    <div class="mb-3"><label class="form-label text-white-50 small">تلفن</label><input id="addrPhone" class="form-control"></div>
+                    <div class="form-check"><input type="checkbox" id="addrDefault" class="form-check-input"> <label class="form-check-label small">آدرس پیش‌فرض</label></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button class="btn btn-success" onclick="saveAddress()">ذخیره</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="site-footer"></div>
+    <script src="./js/layout.js" defer></script>
+    <script src="./js/api.js" defer></script>
+    <script src="./js/search.js" defer></script>
+    <script src="./js/all.min.js" defer></script>
+    <script src="./js/products-data.js" defer></script>
+    <script src="./js/bootstrap.bundle.js" defer></script>
+    <script src="./js/shop-cart.js" defer></script>
+    <script src="./js/nav.js" defer></script>
+    <script src="./js/compare.js" defer></script>
+    <script>
+    let currentUser = null;
+
+    function showProfileTab(tab) {
+        document.querySelectorAll('.profile-tab').forEach(el => el.classList.add('d-none'));
+        document.getElementById(tab + 'Tab').classList.remove('d-none');
+        document.querySelectorAll('.nav-tabs .nav-link').forEach(el => el.classList.remove('active'));
+        event.target.classList.add('active');
+        event.target.style.color = '#00c853';
+        if (tab === 'addresses') loadAddresses();
+        else if (tab === 'wishlist') loadWishlist();
+        else if (tab === 'orders') loadOrders();
+    }
+
+    async function loadProfile() {
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        if (!user) { window.location.href = 'register.html'; return; }
+        currentUser = user;
+        document.getElementById('profileName').textContent = user.fullname || user.username;
+        document.getElementById('userFullname').textContent = user.fullname || '---';
+        document.getElementById('userUsername').textContent = '@' + (user.username || '---');
+        document.getElementById('userEmail').textContent = user.email || '---';
+        document.getElementById('userMobile').textContent = user.mobile || '---';
+        document.getElementById('userRole').textContent = user.role === 'admin' ? 'مدیر' : 'کاربر';
+        document.getElementById('userJoinDate').textContent = user.createdAt ? new Date(user.createdAt).toLocaleDateString('fa-IR') : '---';
+        document.getElementById('editFullname').value = user.fullname || '';
+        document.getElementById('editEmail').value = user.email || '';
+        document.getElementById('editMobile').value = user.mobile || '';
+        document.getElementById('editBirth').value = user.birthYear || '';
+    }
+
+    document.getElementById('profileForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const result = await apiRequest('/users/profile', {
+            method: 'PUT',
+            body: JSON.stringify({
+                fullname: document.getElementById('editFullname').value.trim(),
+                email: document.getElementById('editEmail').value.trim(),
+                mobile: document.getElementById('editMobile').value.trim(),
+                birthYear: document.getElementById('editBirth').value
+            })
+        });
+        if (result.success) {
+            alert('اطلاعات با موفقیت به‌روز شد');
+            if (result.data) {
+                localStorage.setItem('user', JSON.stringify(result.data));
+                loadProfile();
+            }
+        } else {
+            alert('خطا در ذخیره اطلاعات');
+        }
+    });
+
+    async function loadAddresses() {
+        const container = document.getElementById('addressesList');
+        container.innerHTML = '<div class="text-center py-3"><i class="fa fa-spinner fa-spin text-success"></i></div>';
+        const result = await apiRequest('/users/addresses');
+        if (!result.success || !result.data || result.data.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-4"><i class="fa fa-map-marker fa-2x mb-2"></i><p>آدرسی ثبت نشده است</p></div>';
+            return;
+        }
+        container.innerHTML = result.data.map(a => `
+            <div class="address-item p-3 mb-2" style="background:#0a0c0b;border-radius:12px;${a.isDefault ? 'border:1px solid #00c853;' : ''}">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="text-white">${a.fullAddress}</div>
+                        <div class="text-white-50 small mt-1">${a.city || ''} ${a.postalCode ? ' - کد پستی: ' + a.postalCode : ''}</div>
+                        <div class="text-white-50 small">${a.phone ? 'تلفن: ' + a.phone : ''}</div>
+                    </div>
+                    <div>
+                        ${a.isDefault ? '<span class="badge bg-success ms-2">پیش‌فرض</span>' : ''}
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeAddress(${a.id})"><i class="fa fa-trash"></i></button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function showAddAddress() {
+        ['addrFull','addrCity','addrPostal','addrPhone'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('addrDefault').checked = false;
+        new bootstrap.Modal(document.getElementById('addressModal')).show();
+    }
+
+    async function saveAddress() {
+        const data = {
+            fullAddress: document.getElementById('addrFull').value.trim(),
+            city: document.getElementById('addrCity').value.trim(),
+            postalCode: document.getElementById('addrPostal').value.trim(),
+            phone: document.getElementById('addrPhone').value.trim(),
+            isDefault: document.getElementById('addrDefault').checked
+        };
+        if (!data.fullAddress) { alert('آدرس کامل را وارد کنید'); return; }
+        const result = await apiRequest('/users/addresses', { method: 'POST', body: JSON.stringify(data) });
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('addressModal')).hide();
+            loadAddresses();
+        } else { alert('خطا'); }
+    }
+
+    async function removeAddress(id) {
+        if (!confirm('حذف شود؟')) return;
+        await apiRequest('/users/addresses/' + id, { method: 'DELETE' });
+        loadAddresses();
+    }
+
+    async function loadWishlist() {
+        const container = document.getElementById('wishlistList');
+        container.innerHTML = '<div class="col-12 text-center py-4"><i class="fa fa-spinner fa-spin fa-2x text-success"></i></div>';
+        const ids = await API.getWishlist();
+        if (!ids || ids.length === 0) {
+            container.innerHTML = '<div class="col-12 text-center text-muted py-4"><i class="fa fa-heart fa-2x mb-2"></i><p>محصولی در علاقه‌مندی‌ها نیست</p></div>';
+            return;
+        }
+        let html = '';
+        for (const id of ids) {
+            const p = await API.getProductById(id);
+            if (p) {
+                html += '<div class="col-6 col-md-4 col-lg-3"><div class="p-2" style="background:#0a0c0b;border-radius:12px;text-align:center;">' +
+                    '<img src="./img/' + p.image + '" style="width:100%;height:100px;object-fit:contain;" onerror="this.src=\'https://placehold.co/100\'">' +
+                    '<div class="small text-white mt-1">' + p.name + '</div><div class="text-success small">' + p.price.toLocaleString() + '</div>' +
+                    '<button class="btn btn-sm btn-outline-danger mt-1" onclick="removeWishlist(' + p.id + ')"><i class="fa fa-heart-broken"></i></button>' +
+                    '</div></div>';
+            }
+        }
+        container.innerHTML = html || '<div class="col-12 text-center text-muted">خطا</div>';
+    }
+
+    async function loadOrders() {
+        const container = document.getElementById('ordersList');
+        container.innerHTML = '<div class="text-center py-4"><i class="fa fa-spinner fa-spin fa-2x text-success"></i></div>';
+        try {
+            const result = await apiRequest('/orders');
+            if (result.success && result.data && result.data.length > 0) {
+                container.innerHTML = result.data.map(function(order) {
+                    let statusClass = order.status === 'confirmed' ? 'bg-success' : order.status === 'shipped' ? 'bg-info' : 'bg-warning';
+                    let statusText = order.status === 'confirmed' ? 'تأیید شده' : order.status === 'shipped' ? 'ارسال شده' : 'در حال پردازش';
+                    let itemsHtml = order.items.map(function(item) {
+                        return '<div class="d-flex justify-content-between small"><span>' + item.name + ' × ' + item.quantity + '</span><span>' + (item.price * item.quantity).toLocaleString() + ' تومان</span></div>';
+                    }).join('');
+                    return '<div class="order-item p-3 mb-3" style="background:rgba(0,200,83,0.05);border-radius:12px;border:1px solid rgba(0,200,83,0.1);">' +
+                        '<div class="d-flex justify-content-between mb-2">' +
+                        '<span class="text-success fw-bold">سفارش #' + order.id + '</span>' +
+                        '<span class="badge ' + statusClass + '">' + statusText + '</span>' +
+                        '</div>' +
+                        '<div class="small text-muted mb-2">' + new Date(order.createdAt).toLocaleDateString('fa-IR') + '</div>' +
+                        '<div class="mb-2">' + itemsHtml + '</div>' +
+                        '<hr style="border-color:rgba(0,200,83,0.1);margin:8px 0;">' +
+                        '<div class="d-flex justify-content-between">' +
+                        '<span class="text-muted small">مجموع:</span>' +
+                        '<span class="text-success fw-bold">' + order.totalAmount.toLocaleString() + ' تومان</span>' +
+                        '</div>' +
+                        '<div class="small text-muted mt-1">آدرس: ' + order.address + '</div>' +
+                        '</div>';
+                }).join('');
+            } else {
+                container.innerHTML = '<div class="text-center text-muted py-5"><i class="fa fa-receipt fa-3x mb-3" style="color:rgba(0,200,83,0.3);"></i><p>سفارشی ثبت نشده است</p></div>';
+            }
+        } catch(e) {
+            container.innerHTML = '<div class="text-center text-muted py-4">خطا در دریافت سفارشات</div>';
+        }
+    }
+
+    async function removeWishlist(id) {
+        await API.removeFromWishlist(id);
+        loadWishlist();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadProfile();
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            localStorage.removeItem('token'); localStorage.removeItem('user');
+            window.location.href = 'index.html';
+        });
+    });
+    </script>
+
+</body>
+</html>
+

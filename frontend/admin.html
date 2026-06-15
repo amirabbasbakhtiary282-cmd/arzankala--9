@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="fa-ir" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="پنل مدیریت فروشگاه ارزان‌کالا">
+    <title>پنل مدیریت | ارزان کالا</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./img/logo.png">
+    <link rel="stylesheet" href="./css/bootstrap.rtl.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="./css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        .admin-stat-box { background:linear-gradient(145deg,var(--bg-card),var(--bg-secondary)); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:14px 10px; text-align:center; transition:.3s; }
+        .admin-stat-box:hover { border-color:var(--green-primary); transform:translateY(-3px); box-shadow:var(--shadow-lg); }
+        .admin-stat-num { font-size:1.5rem; font-weight:800; }
+        .admin-stat-label { font-size:.7rem; color:var(--text-muted); }
+        .chart-card { background:linear-gradient(145deg,var(--bg-card),var(--bg-secondary)); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:12px; transition:.3s; }
+        .chart-card:hover { border-color:var(--green-primary); }
+        .chart-title { font-size:.8rem; font-weight:600; color:var(--text-primary); margin-bottom:8px; }
+        .chart-title i { color:var(--green-primary); margin-left:4px; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <div class="floating-orb"></div>
+    <div class="floating-orb"></div>
+    <div class="floating-orb"></div>
+    <div class="container-fluid page-main">
+        <div class="row">
+            <div class="col-md-3 col-lg-2 mb-3">
+                <div class="list-group list-group-dark" style="font-size:.85rem;">
+                    <button class="list-group-item list-group-item-action active" onclick="showTab('dashboard',this)">
+                        <i class="fa fa-chart-pie ms-1"></i> داشبورد
+                    </button>
+                    <button class="list-group-item list-group-item-action" onclick="showTab('products',this)">
+                        <i class="fa fa-box ms-1"></i> محصولات
+                    </button>
+                    <button class="list-group-item list-group-item-action" onclick="showTab('orders',this)">
+                        <i class="fa fa-shopping-cart ms-1"></i> سفارشات
+                    </button>
+                    <button class="list-group-item list-group-item-action" onclick="showTab('comments',this)">
+                        <i class="fa fa-comments ms-1"></i> نظرات
+                    </button>
+                    <button class="list-group-item list-group-item-action" onclick="showTab('users',this)">
+                        <i class="fa fa-users ms-1"></i> کاربران
+                    </button>
+                    <hr style="border-color:#2a2f2e;margin:8px 0;">
+                    <button class="list-group-item list-group-item-action text-danger" onclick="localStorage.removeItem('token');localStorage.removeItem('user');window.location.href='index.html'">
+                        <i class="fa fa-sign-out-alt ms-1"></i> خروج
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-9 col-lg-10">
+
+                <!-- ========== DASHBOARD ========== -->
+                <div id="dashboardTab" class="admin-tab">
+                    <div class="row g-2 mb-3" id="statsCards"></div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-lg-4">
+                            <div class="chart-card">
+                                <div class="chart-title"><i class="fa fa-chart-pie"></i> توزیع دسته‌بندی</div>
+                                <canvas id="categoryChart" height="150"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="chart-card">
+                                <div class="chart-title"><i class="fa fa-chart-bar"></i> میانگین قیمت</div>
+                                <canvas id="priceChart" height="150"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="chart-card">
+                                <div class="chart-title"><i class="fa fa-eye"></i> پربازدیدترین‌ها</div>
+                                <canvas id="topProductsChart" height="150"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-lg-5">
+                            <div class="chart-card">
+                                <div class="chart-title"><i class="fa fa-warehouse"></i> موجودی به تفکیک دسته</div>
+                                <canvas id="stockChart" height="130"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-lg-7">
+                            <div class="chart-card">
+                                <div class="d-flex justify-content-between align-items-center" style="margin-bottom:6px;">
+                                    <div class="chart-title mb-0"><i class="fa fa-comments"></i> نظرات</div>
+                                    <div id="commentStatsBadge" class="small text-muted"></div>
+                                </div>
+                                <div id="recentActivity" class="text-muted small" style="max-height:140px;overflow-y:auto;font-size:.75rem;line-height:1.7;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========== PRODUCTS ========== -->
+                <div id="productsTab" class="admin-tab d-none">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="text-white mb-0"><i class="fa fa-box text-success ms-1"></i> مدیریت محصولات</h6>
+                        <button class="btn btn-success btn-sm" onclick="showAddProductModal()"><i class="fa fa-plus ms-1"></i> جدید</button>
+                    </div>
+                    <div class="table-responsive chart-card p-2">
+                        <table class="table table-hover table-sm mb-0" style="font-size:.8rem;">
+                            <thead><tr><th>ID</th><th>تصویر</th><th>نام</th><th>قیمت</th><th>دسته</th><th>موجودی</th><th>عملیات</th></tr></thead>
+                            <tbody id="productsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ========== ORDERS ========== -->
+                <div id="ordersTab" class="admin-tab d-none">
+                    <h6 class="text-white mb-2"><i class="fa fa-shopping-cart text-success ms-1"></i> سفارشات</h6>
+                    <div class="table-responsive chart-card p-2">
+                        <table class="table table-hover table-sm mb-0" style="font-size:.8rem;">
+                            <thead><tr><th>ID</th><th>کاربر</th><th>محصولات</th><th>مبلغ</th><th>وضعیت</th><th>تاریخ</th><th>عملیات</th></tr></thead>
+                            <tbody id="ordersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ========== COMMENTS ========== -->
+                <div id="commentsTab" class="admin-tab d-none">
+                    <h6 class="text-white mb-2"><i class="fa fa-comments text-success ms-1"></i> نظرات</h6>
+                    <div class="mb-2">
+                        <select id="commentFilter" class="form-select form-select-sm" style="width:160px;" onchange="loadAdminComments()">
+                            <option value="all">همه</option>
+                            <option value="pending">در انتظار تأیید</option>
+                            <option value="approved">تأیید شده</option>
+                        </select>
+                    </div>
+                    <div id="adminCommentsList" class="chart-card p-2"></div>
+                </div>
+
+                <!-- ========== USERS ========== -->
+                <div id="usersTab" class="admin-tab d-none">
+                    <h6 class="text-white mb-2"><i class="fa fa-users text-success ms-1"></i> کاربران</h6>
+                    <div class="table-responsive chart-card p-2">
+                        <table class="table table-hover table-sm mb-0" style="font-size:.8rem;">
+                            <thead><tr><th>ID</th><th>نام</th><th>نام کاربری</th><th>ایمیل</th><th>نقش</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+                            <tbody id="usersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Modal -->
+    <div class="modal fade" id="productModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header py-2"><h6 class="modal-title" id="productModalTitle">محصول جدید</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-md-6"><label class="form-label text-muted small mb-0">نام محصول</label><input id="editName" class="form-control form-control-sm"></div>
+                        <div class="col-md-3"><label class="form-label text-muted small mb-0">قیمت (دلار)</label><input id="editPriceUSD" type="number" step="0.01" class="form-control form-control-sm"></div>
+                        <div class="col-md-3"><label class="form-label text-muted small mb-0">قیمت قدیم (دلار)</label><input id="editOldPriceUSD" type="number" step="0.01" class="form-control form-control-sm"></div>
+                        <div class="col-md-4"><label class="form-label text-muted small mb-0">دسته</label>
+                            <select id="editCategory" class="form-select form-select-sm">
+                                <option value="mobile">موبایل</option><option value="laptop">لپ تاپ</option><option value="tablet">تبلت</option>
+                                <option value="accessory">لوازم جانبی</option><option value="camera">دوربین</option><option value="monitor">مانیتور</option>
+                                <option value="home">لوازم خانگی</option><option value="tv">تلویزیون</option><option value="gaming">گیمینگ</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4"><label class="form-label text-muted small mb-0">موجودی</label><input id="editStock" type="number" class="form-control form-control-sm"></div>
+                        <div class="col-md-4"><label class="form-label text-muted small mb-0">تصویر</label><input id="editImage" class="form-control form-control-sm"></div>
+                        <div class="col-12"><label class="form-label text-muted small mb-0">توضیحات</label><textarea id="editDescription" rows="2" class="form-control form-control-sm"></textarea></div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">انصراف</button>
+                    <button class="btn btn-success btn-sm" onclick="saveProduct()"><i class="fa fa-save ms-1"></i> ذخیره</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="site-footer"></div>
+    <script src="./js/layout.js" defer></script>
+    <script src="./js/api.js" defer></script>
+    <script src="./js/search.js" defer></script>
+    <script src="./js/all.min.js" defer></script>
+    <script src="./js/products-data.js" defer></script>
+    <script src="./js/bootstrap.bundle.js" defer></script>
+    <script src="./js/shop-cart.js" defer></script>
+    <script src="./js/nav.js" defer></script>
+    <script>
+    var editProductId = null;
+    var chartInstances = {};
+
+    function notif(msg, type) {
+        if (typeof API !== 'undefined' && API.showNotification) API.showNotification(msg, type);
+        else alert(msg);
+    }
+
+    function showTab(tab, btn) {
+        document.querySelectorAll('.admin-tab').forEach(function(el) { el.classList.add('d-none'); });
+        var target = document.getElementById(tab + 'Tab');
+        if (target) target.classList.remove('d-none');
+        document.querySelectorAll('.list-group-item').forEach(function(el) { el.classList.remove('active'); });
+        if (btn) btn.classList.add('active');
+        if (tab === 'dashboard') loadDashboard();
+        else if (tab === 'products') loadAdminProducts();
+        else if (tab === 'orders') loadAdminOrders();
+        else if (tab === 'comments') loadAdminComments();
+        else if (tab === 'users') loadAdminUsers();
+    }
+
+    function checkAuth(result) {
+        if (!result) { notif('خطا در ارتباط با سرور', 'error'); return false; }
+        if (result.code === 'INVALID_TOKEN' || result.code === 'TOKEN_EXPIRED' || result.status === 401) {
+            notif('نشست شما منقضی شده است', 'error');
+            localStorage.removeItem('token'); localStorage.removeItem('user');
+            window.location.href = 'register.html';
+            return false;
+        }
+        return true;
+    }
+
+    function destroyChart(key) {
+        if (chartInstances[key]) { chartInstances[key].destroy(); delete chartInstances[key]; }
+    }
+
+    // ==================== DASHBOARD ====================
+    async function loadDashboard() {
+        var container = document.getElementById('statsCards');
+        container.innerHTML = '<div class="col-12 text-center py-3"><i class="fa fa-spinner fa-spin fa-2x text-success"></i></div>';
+        try {
+            var [statsRes, commentsRes, ordersRes] = await Promise.all([
+                apiRequest('/products/stats'),
+                apiRequest('/comments/admin/stats'),
+                apiRequest('/orders/admin/all')
+            ]);
+            if (!checkAuth(statsRes)) return;
+            if (statsRes && statsRes.success && statsRes.data) {
+                var d = statsRes.data;
+                var cs = (commentsRes && commentsRes.success && commentsRes.data) ? commentsRes.data : null;
+                var ordersCount = (ordersRes && ordersRes.success && ordersRes.data) ? ordersRes.data.length : 0;
+                container.innerHTML =
+                    '<div class="col"><div class="admin-stat-box"><div class="admin-stat-num text-success">' + d.totalProducts + '</div><div class="admin-stat-label">محصولات</div></div></div>' +
+                    '<div class="col"><div class="admin-stat-box"><div class="admin-stat-num text-info">' + d.totalStock.toLocaleString() + '</div><div class="admin-stat-label">موجودی</div></div></div>' +
+                    '<div class="col"><div class="admin-stat-box"><div class="admin-stat-num text-warning" style="font-size:1.2rem;">' + Math.round(d.averagePrice).toLocaleString() + '</div><div class="admin-stat-label">میانگین قیمت</div></div></div>' +
+                    '<div class="col"><div class="admin-stat-box"><div class="admin-stat-num text-danger" style="font-size:1.2rem;">' + Math.round(d.totalValue / 1000000).toLocaleString() + 'M</div><div class="admin-stat-label">ارزش کل</div></div></div>' +
+                    (cs ? '<div class="col"><div class="admin-stat-box"><div class="admin-stat-num text-success">' + cs.total + '</div><div class="admin-stat-label">نظرات</div></div></div>' : '') +
+                    (cs ? '<div class="col"><div class="admin-stat-box"><div class="admin-stat-num text-warning">' + cs.pending + '</div><div class="admin-stat-label">در انتظار</div></div></div>' : '') +
+                    '<div class="col"><div class="admin-stat-box"><div class="admin-stat-num text-info">' + ordersCount + '</div><div class="admin-stat-label">سفارشات</div></div></div>';
+                if (cs) {
+                    document.getElementById('commentStatsBadge').textContent = cs.approved + ' تأیید شده · ' + cs.pending + ' در انتظار · میانگین ' + (cs.averageRating || 0);
+                }
+            } else {
+                container.innerHTML = '<div class="col-12 text-center text-danger">' + (statsRes.error || 'خطا') + '</div>';
+            }
+            renderDashboardCharts(statsRes, commentsRes, ordersRes);
+        } catch(e) {
+            container.innerHTML = '<div class="col-12 text-center text-danger">' + e.message + '</div>';
+        }
+    }
+
+    function renderDashboardCharts(statsRes, commentsRes, ordersRes) {
+        if (!statsRes || !statsRes.success || !statsRes.data) return;
+        var d = statsRes.data;
+        var catDist = d.categoryDistribution || {};
+        var cats = Object.keys(catDist);
+        var pCats = { mobile:'موبایل', laptop:'لپ‌تاپ', tablet:'تبلت', accessory:'لوازم جانبی', camera:'دوربین', monitor:'مانیتور', home:'خانگی', tv:'تلویزیون', gaming:'گیمینگ' };
+        var labels = cats.map(function(c) { return pCats[c] || c; });
+        var values = cats.map(function(c) { return catDist[c]; });
+
+        // Pie chart
+        destroyChart('catPie');
+        if (typeof Chart !== 'undefined' && labels.length > 0) {
+            var colors = ['#00c853','#2979ff','#ff9100','#e040fb','#00bcd4','#ff5722','#8bc34a','#ffc107','#e91e63'];
+            var ctx = document.getElementById('categoryChart');
+            if (ctx) {
+                chartInstances.catPie = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: { labels: labels, datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderWidth: 0 }] },
+                    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', rtl: true, labels: { color: '#aaa', font: { size: 9 }, boxWidth: 10, padding: 4 } } } }
+                });
+            }
+        }
+
+        apiRequest('/products?limit=100').then(function(prodRes) {
+            if (!prodRes || !prodRes.success || !prodRes.data) return;
+            var products = prodRes.data;
+
+            // Price by category
+            destroyChart('priceBar');
+            var cPrices = {};
+            products.forEach(function(p) {
+                if (!cPrices[p.category]) cPrices[p.category] = { sum: 0, count: 0 };
+                cPrices[p.category].sum += (p.price || 0);
+                cPrices[p.category].count++;
+            });
+            var pLabels = Object.keys(cPrices).map(function(c) { return pCats[c] || c; });
+            var pData = Object.keys(cPrices).map(function(c) { return Math.round(cPrices[c].sum / cPrices[c].count / 10000) * 10000; });
+            var ctx2 = document.getElementById('priceChart');
+            if (typeof Chart !== 'undefined' && ctx2) {
+                chartInstances.priceBar = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: pLabels,
+                        datasets: [{ label: 'میانگین قیمت (تومان)', data: pData, backgroundColor: 'rgba(0,200,83,0.7)', borderColor: '#00c853', borderWidth: 1, borderRadius: 3 }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: true,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { ticks: { color: '#888', font: { size: 9 }, callback: function(v) { return (v/1000000).toFixed(1) + 'M'; } } }, x: { ticks: { color: '#aaa', font: { size: 8 } } } }
+                    }
+                });
+            }
+
+            // Top products
+            destroyChart('topProd');
+            var sorted = products.slice().sort(function(a,b) { return (b.viewCount||0) - (a.viewCount||0); }).slice(0, 6);
+            var tNames = sorted.map(function(p) { return p.name.length > 14 ? p.name.substring(0, 14) + '..' : p.name; });
+            var tViews = sorted.map(function(p) { return p.viewCount || 0; });
+            var ctx3 = document.getElementById('topProductsChart');
+            if (typeof Chart !== 'undefined' && ctx3) {
+                chartInstances.topProd = new Chart(ctx3, {
+                    type: 'bar',
+                    data: {
+                        labels: tNames.reverse(),
+                        datasets: [{ label: 'بازدید', data: tViews.reverse(), backgroundColor: 'rgba(255,145,0,0.7)', borderColor: '#ff9100', borderWidth: 1, borderRadius: 3 }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: true, indexAxis: 'y',
+                        plugins: { legend: { display: false } },
+                        scales: { x: { ticks: { color: '#888', font: { size: 9 } } }, y: { ticks: { color: '#aaa', font: { size: 8 } } } }
+                    }
+                });
+            }
+
+            // Stock by category
+            destroyChart('stockBar');
+            var cStock = {};
+            products.forEach(function(p) {
+                if (!cStock[p.category]) cStock[p.category] = 0;
+                cStock[p.category] += (p.stock || 0);
+            });
+            var sLabels = Object.keys(cStock).map(function(c) { return pCats[c] || c; });
+            var sData = Object.keys(cStock).map(function(c) { return cStock[c]; });
+            var ctx4 = document.getElementById('stockChart');
+            if (typeof Chart !== 'undefined' && ctx4) {
+                chartInstances.stockBar = new Chart(ctx4, {
+                    type: 'bar',
+                    data: {
+                        labels: sLabels,
+                        datasets: [{ label: 'موجودی', data: sData, backgroundColor: 'rgba(41,121,255,0.7)', borderColor: '#2979ff', borderWidth: 1, borderRadius: 3 }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: true,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { ticks: { color: '#888', font: { size: 9 } } }, x: { ticks: { color: '#aaa', font: { size: 8 } } } }
+                    }
+                });
+            }
+
+            // Recent activity
+            var el = document.getElementById('recentActivity');
+            var html = '';
+            if (commentsRes && commentsRes.success && commentsRes.data) {
+                var cs = commentsRes.data;
+                html += '<div><i class="fa fa-check-circle text-success ms-1"></i> ' + cs.approved + ' تأیید شده، ' + cs.pending + ' در انتظار تأیید (میانگین: ' + (cs.averageRating || 0) + ')</div>';
+            }
+            var topCat = Object.entries(catDist).sort(function(a,b) { return b[1] - a[1]; })[0];
+            if (topCat) {
+                html += '<div><i class="fa fa-tag text-info ms-1"></i> بیشترین محصولات: "' + (pCats[topCat[0]] || topCat[0]) + '" (' + topCat[1] + ' عدد)</div>';
+            }
+            if (ordersRes && ordersRes.success && ordersRes.data) {
+                html += '<div><i class="fa fa-shopping-cart text-warning ms-1"></i> ' + ordersRes.data.length + ' سفارش ثبت شده</div>';
+                var orderBtn = document.querySelector('[onclick*="orders"]');
+                if (orderBtn) html += '<div class="mt-1"><a class="text-info" style="cursor:pointer;text-decoration:underline;font-size:.75rem;" onclick="showTab(\'orders\',document.querySelector(\'[onclick*=\\\'orders\\\']\'))"><i class="fa fa-eye ms-1"></i> مشاهده سفارشات</a></div>';
+            }
+            var bestSeller = products.slice().sort(function(a,b) { return b.purchaseCount - a.purchaseCount; })[0];
+            if (bestSeller && bestSeller.purchaseCount > 0) {
+                html += '<div><i class="fa fa-star text-warning ms-1"></i> پرفروش‌ترین: ' + (bestSeller.name.length > 30 ? bestSeller.name.substring(0,30)+'...' : bestSeller.name) + '</div>';
+            }
+            el.innerHTML = html || '<span class="text-muted"><i class="fa fa-info-circle ms-1"></i> اطلاعاتی نیست</span>';
+        });
+    }
+
+    // ==================== PRODUCTS ====================
+    function showAddProductModal() {
+        editProductId = null;
+        document.getElementById('productModalTitle').textContent = 'افزودن محصول جدید';
+        ['editName','editPriceUSD','editOldPriceUSD','editStock','editImage','editDescription'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        document.getElementById('editCategory').value = 'mobile';
+        new bootstrap.Modal(document.getElementById('productModal')).show();
+    }
+
+    async function saveProduct() {
+        var data = {
+            name: document.getElementById('editName').value.trim(),
+            priceUSD: parseFloat(document.getElementById('editPriceUSD').value),
+            oldPriceUSD: parseFloat(document.getElementById('editOldPriceUSD').value) || null,
+            category: document.getElementById('editCategory').value,
+            stock: parseInt(document.getElementById('editStock').value) || 0,
+            image: document.getElementById('editImage').value.trim() || 'default.jpg',
+            description: document.getElementById('editDescription').value.trim()
+        };
+        if (!data.name || !data.priceUSD) { notif('نام و قیمت اجباری است', 'error'); return; }
+        var endpoint = editProductId ? '/products/' + editProductId : '/products';
+        var method = editProductId ? 'PUT' : 'POST';
+        var result = await apiRequest(endpoint, { method: method, body: JSON.stringify(data) });
+        if (!checkAuth(result)) return;
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
+            notif('محصول ذخیره شد', 'success');
+            loadAdminProducts();
+        } else {
+            notif(result.error || 'خطا', 'error');
+        }
+    }
+
+    async function loadAdminProducts() {
+        var tbody = document.getElementById('productsTableBody');
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-2"><i class="fa fa-spinner fa-spin text-success"></i></td></tr>';
+        var result = await apiRequest('/products?limit=100');
+        if (!checkAuth(result)) return;
+        if (!result || !result.success || !result.data) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-2">' + (result ? result.error : 'خطا') + '</td></tr>'; return; }
+        if (result.data.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-2">محصولی نیست</td></tr>'; return; }
+        tbody.innerHTML = result.data.map(function(p) {
+            return '<tr><td>' + p.id + '</td><td><img src="./img/' + p.image + '" style="width:32px;height:32px;object-fit:cover;border-radius:6px;" onerror="this.src=\'https://placehold.co/32\'"></td><td>' + esc(p.name) + '</td><td>' + (p.priceUSD || '---') + '$</td><td>' + p.category + '</td><td><span class="badge ' + (p.stock > 0 ? 'bg-success' : 'bg-danger') + '">' + p.stock + '</span></td><td><button class="btn btn-sm btn-outline-info py-0 px-1" onclick="showEditProduct(' + p.id + ')"><i class="fa fa-edit" style="font-size:.75rem;"></i></button> <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="deleteProduct(' + p.id + ')"><i class="fa fa-trash" style="font-size:.75rem;"></i></button></td></tr>';
+        }).join('');
+    }
+
+    async function showEditProduct(id) {
+        var result = await apiRequest('/products/' + id);
+        if (!checkAuth(result)) return;
+        if (!result || !result.success || !result.data) { notif(result ? result.error : 'خطا', 'error'); return; }
+        var p = result.data;
+        editProductId = id;
+        document.getElementById('productModalTitle').textContent = 'ویرایش محصول';
+        document.getElementById('editName').value = p.name;
+        document.getElementById('editPriceUSD').value = p.priceUSD || '';
+        document.getElementById('editOldPriceUSD').value = p.oldPriceUSD || '';
+        document.getElementById('editCategory').value = p.category;
+        document.getElementById('editStock').value = p.stock;
+        document.getElementById('editImage').value = p.image;
+        document.getElementById('editDescription').value = p.description || '';
+        new bootstrap.Modal(document.getElementById('productModal')).show();
+    }
+
+    async function deleteProduct(id) {
+        if (!confirm('آیا از حذف این محصول اطمینان دارید؟')) return;
+        var result = await apiRequest('/products/' + id, { method: 'DELETE' });
+        if (!checkAuth(result)) return;
+        if (result.success) { notif('محصول حذف شد', 'success'); loadAdminProducts(); }
+        else { notif('خطا در حذف', 'error'); }
+    }
+
+    // ==================== ORDERS ====================
+    async function loadAdminOrders() {
+        var tbody = document.getElementById('ordersTableBody');
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-2"><i class="fa fa-spinner fa-spin text-success"></i></td></tr>';
+        var result = await apiRequest('/orders/admin/all');
+        if (!checkAuth(result)) return;
+        if (!result || !result.success) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-2">' + (result ? result.error : 'خطا') + '</td></tr>'; return; }
+        if (!result.data || result.data.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-2">سفارشی نیست</td></tr>'; return; }
+        var st = { confirmed:'<span class="badge bg-info">تأیید شده</span>', processing:'<span class="badge bg-warning text-dark">در حال پردازش</span>', shipped:'<span class="badge bg-primary">ارسال شده</span>', delivered:'<span class="badge bg-success">تحویل شده</span>', cancelled:'<span class="badge bg-danger">لغو شده</span>' };
+        tbody.innerHTML = result.data.map(function(o) {
+            var items = o.items ? (typeof o.items === 'string' ? JSON.parse(o.items) : o.items) : [];
+            var itemText = items.map(function(i) { return i.name || '#' + i.id; }).join(', ');
+            if (itemText.length > 50) itemText = itemText.substring(0, 50) + '...';
+            return '<tr><td>' + o.id + '</td><td>' + (o.userId || '---') + '</td><td class="small">' + itemText + '</td><td>' + (o.totalAmount ? o.totalAmount.toLocaleString() : '---') + '</td><td>' + (st[o.status] || o.status) + '</td><td class="small">' + (o.createdAt ? new Date(o.createdAt).toLocaleDateString('fa-IR') : '---') + '</td><td><select class="form-select form-select-sm" style="width:120px;" onchange="updateOrderStatus(' + o.id + ',this.value)"><option value="confirmed"' + (o.status==='confirmed'?' selected':'') + '>تأیید</option><option value="processing"' + (o.status==='processing'?' selected':'') + '>پردازش</option><option value="shipped"' + (o.status==='shipped'?' selected':'') + '>ارسال</option><option value="delivered"' + (o.status==='delivered'?' selected':'') + '>تحویل</option><option value="cancelled"' + (o.status==='cancelled'?' selected':'') + '>لغو</option></select></td></tr>';
+        }).join('');
+    }
+
+    async function updateOrderStatus(id, status) {
+        var result = await apiRequest('/orders/' + id + '/status', { method: 'PUT', body: JSON.stringify({ status: status }) });
+        if (!checkAuth(result)) return;
+        if (result.success) notif('وضعیت سفارش به‌روز شد', 'success');
+        else notif(result.error || 'خطا', 'error');
+    }
+
+    // ==================== COMMENTS ====================
+    async function loadAdminComments() {
+        var container = document.getElementById('adminCommentsList');
+        container.innerHTML = '<div class="text-center py-3"><i class="fa fa-spinner fa-spin fa-2x text-success"></i></div>';
+        var status = document.getElementById('commentFilter').value;
+        var result = await apiRequest('/comments/admin/all?status=' + status + '&limit=50');
+        if (!checkAuth(result)) return;
+        if (!result || !result.success) { container.innerHTML = '<div class="text-center text-danger py-3">' + (result ? result.error : 'خطا') + '</div>'; return; }
+        if (!result.data || result.data.length === 0) { container.innerHTML = '<div class="text-center text-muted py-3">نظری نیست</div>'; return; }
+        container.innerHTML = result.data.map(function(c) {
+            return '<div class="p-2 mb-1" style="background:#0a0c0b;border-radius:8px;border-right:3px solid ' + (c.isApproved ? '#00c853' : '#ffc107') + ';font-size:.8rem;">' +
+                '<div class="d-flex justify-content-between flex-wrap">' +
+                    '<div><strong class="text-white small">' + esc(c.username || '') + '</strong> <span class="text-muted ms-1" style="font-size:.7rem;">' + (c.createdAt ? new Date(c.createdAt).toLocaleDateString('fa-IR') : '') + '</span></div>' +
+                    '<div>' + (c.isApproved ? '<span class="badge bg-success" style="font-size:.65rem;">تأیید</span>' : '<span class="badge bg-warning text-dark" style="font-size:.65rem;">در انتظار</span>') + '</div>' +
+                '</div>' +
+                '<div class="mt-1 text-white" style="font-size:.8rem;">' + esc(c.content || '') + '</div>' +
+                '<div class="mt-1">' +
+                    (!c.isApproved ? '<button class="btn btn-sm btn-success py-0 px-1 me-1" onclick="approveComment(' + c.id + ')" style="font-size:.7rem;"><i class="fa fa-check ms-1"></i>تأیید</button> ' : '') +
+                    '<button class="btn btn-sm btn-outline-danger py-0 px-1 me-1" onclick="adminDeleteComment(' + c.id + ')" style="font-size:.7rem;"><i class="fa fa-trash ms-1"></i>حذف</button>' +
+                    '<button class="btn btn-sm btn-outline-info py-0 px-1" onclick="replyToComment(' + c.id + ')" style="font-size:.7rem;"><i class="fa fa-reply ms-1"></i>پاسخ</button>' +
+                '</div>' +
+                (c.reply && c.reply.content ? '<div class="mt-1 p-1" style="background:#151716;border-radius:6px;border-right:2px solid #00c853;font-size:.75rem;"><span class="text-success"><i class="fa fa-reply ms-1"></i> پاسخ:</span> <span class="text-white">' + esc(c.reply.content) + '</span></div>' : '') +
+                '</div>';
+        }).join('');
+    }
+
+    async function approveComment(id) {
+        var result = await apiRequest('/comments/' + id + '/approve', { method: 'PUT' });
+        if (!checkAuth(result)) return;
+        if (result.success) { notif('نظر تأیید شد', 'success'); loadAdminComments(); }
+        else { notif(result.error || 'خطا', 'error'); }
+    }
+
+    async function adminDeleteComment(id) {
+        if (!confirm('حذف شود؟')) return;
+        var result = await apiRequest('/comments/' + id, { method: 'DELETE' });
+        if (!checkAuth(result)) return;
+        if (result.success) { notif('نظر حذف شد', 'success'); loadAdminComments(); }
+        else { notif(result.error || 'خطا', 'error'); }
+    }
+
+    async function replyToComment(id) {
+        var reply = prompt('پاسخ خود را وارد کنید:');
+        if (!reply || !reply.trim()) return;
+        var result = await apiRequest('/comments/' + id + '/reply', { method: 'PUT', body: JSON.stringify({ reply: reply.trim() }) });
+        if (!checkAuth(result)) return;
+        if (result.success) { notif('پاسخ ثبت شد', 'success'); loadAdminComments(); }
+        else { notif(result.error || 'خطا', 'error'); }
+    }
+
+    // ==================== USERS ====================
+    async function loadAdminUsers() {
+        var tbody = document.getElementById('usersTableBody');
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-2"><i class="fa fa-spinner fa-spin text-success"></i></td></tr>';
+        var result = await apiRequest('/users/admin/all');
+        if (!checkAuth(result)) return;
+        if (!result || !result.success) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-2">' + (result ? result.error : 'خطا') + '</td></tr>'; return; }
+        tbody.innerHTML = result.data.map(function(u) {
+            return '<tr><td>' + u.id + '</td><td>' + esc(u.fullname || '---') + '</td><td>' + esc(u.username) + '</td><td>' + esc(u.email || '---') + '</td><td><span class="badge ' + (u.role === 'admin' ? 'bg-warning text-dark' : 'bg-info') + '" style="font-size:.65rem;">' + u.role + '</span></td><td><span class="badge ' + (u.isActive !== false ? 'bg-success' : 'bg-danger') + '" style="font-size:.65rem;">' + (u.isActive !== false ? 'فعال' : 'غیرفعال') + '</span></td><td>' + (u.role !== 'admin' ? (u.isActive !== false ? '<button class="btn btn-sm btn-outline-warning py-0 px-1" onclick="toggleUserStatus(' + u.id + ',\'deactivate\')" style="font-size:.7rem;"><i class="fa fa-ban ms-1"></i> غیرفعال</button>' : '<button class="btn btn-sm btn-outline-success py-0 px-1" onclick="toggleUserStatus(' + u.id + ',\'activate\')" style="font-size:.7rem;"><i class="fa fa-check ms-1"></i> فعال</button>') : '---') + '</td></tr>';
+        }).join('');
+    }
+
+    async function toggleUserStatus(id, action) {
+        var result = await apiRequest('/users/admin/' + action + '/' + id, { method: 'PUT' });
+        if (!checkAuth(result)) return;
+        if (result.success) { notif('وضعیت کاربر به‌روز شد', 'success'); loadAdminUsers(); }
+        else { notif(result.error || 'خطا', 'error'); }
+    }
+
+    // ==================== HELPERS ====================
+    function esc(text) {
+        if (!text) return '';
+        return String(text).replace(/[&<>"']/g, function(c) { return '&#' + c.charCodeAt(0) + ';'; });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var user = JSON.parse(localStorage.getItem('user') || 'null');
+        if (!user || user.role !== 'admin') { window.location.href = 'register.html'; return; }
+        loadDashboard();
+    });
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <title>درگاه پرداخت | ارزان کالا</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="فروشگاه اینترنتی ارزان‌کالا - خرید آنلاین انواع موبایل، لپ‌تاپ، تبلت و لوازم جانبی با بهترین قیمت">
+    <meta name="keywords" content="ارزان کالا, فروشگاه اینترنتی, خرید آنلاین, موبایل, لپ تاپ, تبلت, لوازم جانبی">
+    <meta name="robots" content="index, follow">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./img/logo.png">
+    
+    <link rel="stylesheet" href="./css/bootstrap.rtl.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="./css/style.css">
+
+    </head>
+
+
+<body>
+    <div id="site-header"></div>
+
+
+
+    <div class="floating-orb"></div>
+    <div class="floating-orb"></div>
+    <div class="floating-orb"></div>
+    <div class="container buy page-main">
+        <div class="row justify-content-center">
+            <div class="col-lg-11 pay-box">
+                <h3 class="text-center mb-4">
+                    <i class="fa fa-shield-alt text-success me-2"></i>
+                    درگاه پرداخت امن ارزان کالا
+                </h3>
+
+                <div class="row gy-4">
+                    <!-- فرم اطلاعات -->
+                    <div class="col-lg-7">
+                        <div class="mb-3">
+                            <label><i class="fa fa-user me-1 text-success"></i> نام و نام خانوادگی</label>
+                            <input type="text" class="form-control" id="buyName" placeholder="مثال: علی محمدی">
+                        </div>
+
+                        <div class="mb-3">
+                            <label><i class="fa fa-mobile-alt me-1 text-success"></i> شماره موبایل</label>
+                            <input type="text" class="form-control" id="phone" placeholder="09xxxxxxxxx">
+                        </div>
+
+                        <div class="mb-3">
+                            <label><i class="fa fa-envelope me-1 text-success"></i> ایمیل</label>
+                            <input type="email" class="form-control" id="buyEmail" placeholder="example@email.com">
+                        </div>
+
+                        <div class="mb-3">
+                            <label><i class="fa fa-map-marker-alt me-1 text-success"></i> آدرس تحویل</label>
+                            <textarea class="form-control" id="address" rows="2" placeholder="استان، شهر، خیابان، پلاک"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- خلاصه سفارش -->
+                    <div class="col-lg-5">
+                        <div class="summary">
+                            <h5 class="mb-3">
+                                <i class="fa fa-shopping-bag me-2 text-success"></i>
+                                خلاصه سفارش
+                            </h5>
+
+                            <div id="orderItems"></div>
+
+                            <div class="d-flex justify-content-between total">
+                                <span>مبلغ نهایی</span>
+                                <span><span id="totalPrice">0</span> تومان</span>
+                            </div>
+
+                            <button class="pay-btn" id="payButton">
+                                <i class="fa fa-credit-card me-2"></i>
+                                انتقال به درگاه پرداخت
+                            </button>
+
+                            <div class="secure">
+                                <i class="fa fa-lock"></i>
+                                پرداخت شما کاملاً امن و رمزنگاری شده است
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <a href="./category.html" class="btn btn-outline-success">
+                        <i class="fa fa-arrow-right me-1"></i>
+                        بازگشت به فروشگاه
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="site-footer"></div>
+    <script src="./js/layout.js" defer></script>
+    <script src="./js/api.js" defer></script>
+    <script src="./js/search.js" defer></script>
+    <script src="./js/all.min.js" defer></script>
+    <script src="./js/products-data.js" defer></script>
+    <script src="./js/bootstrap.bundle.js" defer></script>
+    <script src="./js/shop-cart.js" defer></script>
+    <script src="./js/nav.js" defer></script>
+    <script src="./js/compare.js" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+            const orderItems = document.getElementById('orderItems');
+            const totalPrice = document.getElementById('totalPrice');
+            let priceFrozenEl = document.getElementById('priceFrozenBanner') || (function() {
+                let el = document.createElement('div');
+                el.id = 'priceFrozenBanner';
+                el.style.cssText = 'text-align:center;padding:10px;margin-bottom:16px;background:rgba(0,200,83,0.1);border:1px solid rgba(0,200,83,0.3);border-radius:12px;font-size:0.8rem;color:#00c853;';
+                el.innerHTML = '<i class="fa fa-lock ms-2"></i> قیمت‌ها در لحظه ورود به درگاه پرداخت ثابت شدند';
+                let summary = document.querySelector('.summary h5');
+                if (summary) summary.parentNode.insertBefore(el, summary.nextSibling);
+                return el;
+            })();
+
+            if (cart.length === 0) {
+                orderItems.innerHTML = '<p class="text-center text-muted py-4">🛒 سبد خرید شما خالی است</p>';
+                totalPrice.innerText = '0';
+                document.getElementById('payButton').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    alert('سبد خرید شما خالی است');
+                    window.location.href = 'category.html';
+                });
+                return;
+            }
+
+            let total = 0;
+            orderItems.innerHTML = '';
+            
+            cart.forEach(item => {
+                const frozenPrice = item.frozenPrice || item.price;
+                const itemTotal = frozenPrice * (item.quantity || 1);
+                total += itemTotal;
+                
+                orderItems.insertAdjacentHTML('beforeend', `
+                    <div class="summary-item">
+                        <span>
+                            <i class="fa fa-circle text-success me-1" style="font-size: 8px;"></i>
+                            ${item.name} × ${item.quantity || 1}
+                        </span>
+                        <span class="text-success fw-bold">${itemTotal.toLocaleString()}</span>
+                    </div>
+                `);
+
+                // Freeze price on first load
+                if (!item.frozenPrice) {
+                    item.frozenPrice = item.price;
+                }
+            });
+
+            localStorage.setItem('cart', JSON.stringify(cart));
+            totalPrice.innerText = total.toLocaleString();
+            
+            document.getElementById('payButton').addEventListener('click', async function() {
+                if (cart.length > 0) {
+                    const token = localStorage.getItem('token');
+                    const address = document.getElementById('address')?.value || 'آدرس پیش‌فرض';
+                    const phone = document.getElementById('phone')?.value || '';
+                    
+                    if (token && !token.startsWith('local-')) {
+                        try {
+                            const result = await apiRequest('/orders', {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    items: cart.map(item => ({
+                                        productId: item.id,
+                                        name: item.name,
+                                        price: item.frozenPrice || item.price,
+                                        quantity: item.quantity || 1
+                                    })),
+                                    totalAmount: total,
+                                    address: address,
+                                    phone: phone
+                                })
+                            });
+                            if (!result.success) {
+                                console.warn('Order API failed:', result.error);
+                            }
+                        } catch(e) {
+                            console.warn('Order API error:', e.message);
+                        }
+                    }
+                    
+                    const purchaseCount = parseInt(localStorage.getItem('purchaseCount') || '0');
+                    localStorage.setItem('purchaseCount', String(purchaseCount + cart.length));
+                    alert('✅ خرید شما با موفقیت انجام شد');
+                    localStorage.setItem('cart', JSON.stringify([]));
+                    if (typeof window.updateCartUI === 'function') window.updateCartUI();
+                    window.location.href = 'index.html';
+                }
+            });
+        });
+    </script>
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./service-worker.js').catch(function(err) {
+            console.log('ServiceWorker registration failed:', err);
+        });
+    }
+    </script>
+</body>
+</html>
