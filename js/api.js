@@ -355,26 +355,77 @@ API.getCart = function() {
 };
 
 // ========== EXCHANGE RATE ==========
-let lastDisplayedRate = parseInt(localStorage.getItem('exchangeRate')) || 750000;
+const FALLBACK_RATE = 750000;
+let lastDisplayedRate = parseInt(localStorage.getItem('exchangeRate')) || FALLBACK_RATE;
 let rateLastFetchTime = 0;
 let liveTimerInterval = null;
 
+async function fetchRateFromNobitex() {
+    try {
+        const res = await fetch('https://api.nobitex.ir/v2/orderbook/USDTIRT');
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data && data.lastTradePrice) return { rate: parseInt(data.lastTradePrice), source: 'Nobitex' };
+        if (data && data.asks && data.asks.length > 0) return { rate: parseInt(data.asks[0].price), source: 'Nobitex' };
+        return null;
+    } catch (e) { return null; }
+}
+
+async function fetchRateFromWallex() {
+    try {
+        const res = await fetch('https://api.wallex.ir/v1/markets');
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data && data.result && data.result.markets && data.result.markets.USDTIRT) {
+            return { rate: parseInt(data.result.markets.USDTIRT.price), source: 'Wallex' };
+        }
+        return null;
+    } catch (e) { return null; }
+}
+
+async function fetchRateDirect() {
+    const results = await Promise.allSettled([fetchRateFromNobitex(), fetchRateFromWallex()]);
+    const rates = results
+        .filter(r => r.status === 'fulfilled' && r.value && r.value.rate > 100000)
+        .map(r => r.value.rate);
+    if (rates.length === 0) return null;
+    rates.sort((a, b) => a - b);
+    const mid = rates[Math.floor(rates.length / 2)];
+    const sources = results
+        .filter(r => r.status === 'fulfilled' && r.value && r.value.rate > 100000)
+        .map(r => r.value.source);
+    return { rate: mid, source: sources.join('+') || 'API' };
+}
+
 API.getExchangeRate = async () => {
-    const result = await apiRequest('/exchange-rate');
-    if (result.success && result.rate) {
-        const rate = Math.round(result.rate / 10) * 10;
-        const prev = result.previousRate ? Math.round(result.previousRate / 10) * 10 : rate;
+    const prev = parseInt(localStorage.getItem('exchangeRate')) || FALLBACK_RATE;
+    try {
+        const result = await apiRequest('/exchange-rate');
+        if (result.success && result.rate && result.rate > 100000) {
+            const rate = Math.round(result.rate / 10) * 10;
+            localStorage.setItem('exchangeRate', rate);
+            rateLastFetchTime = Date.now();
+            localStorage.setItem('exchangeRateTime', rateLastFetchTime.toString());
+            localStorage.setItem('exchangeRateSource', result.source || '؟');
+            localStorage.setItem('exchangeRateLastUpdate', result.lastUpdate || new Date().toISOString());
+            localStorage.setItem('exchangeRateChange', (rate - prev));
+            localStorage.setItem('exchangeRateChangePercent', result.changePercent || 0);
+            return rate;
+        }
+    } catch (e) {}
+    const direct = await fetchRateDirect();
+    if (direct && direct.rate > 100000) {
+        const rate = Math.round(direct.rate / 10) * 10;
         localStorage.setItem('exchangeRate', rate);
         rateLastFetchTime = Date.now();
         localStorage.setItem('exchangeRateTime', rateLastFetchTime.toString());
-        localStorage.setItem('exchangeRateSource', result.source || '؟');
-        localStorage.setItem('exchangeRateLastUpdate', result.lastUpdate || new Date().toISOString());
+        localStorage.setItem('exchangeRateSource', direct.source);
+        localStorage.setItem('exchangeRateLastUpdate', new Date().toISOString());
         localStorage.setItem('exchangeRateChange', (rate - prev));
-        localStorage.setItem('exchangeRateChangePercent', result.changePercent || 0);
         return rate;
     }
     const cached = localStorage.getItem('exchangeRate');
-    return cached ? parseInt(cached) : 750000;
+    return cached ? parseInt(cached) : FALLBACK_RATE;
 };
 
 function flashPricesOnChange(newRate) {
@@ -419,12 +470,26 @@ API.displayExchangeRate = async function() {
         return el;
     })();
     try {
+        let rate = null, change = 0, source = '';
         const result = await apiRequest('/exchange-rate');
-        if (result.success && result.rate) {
-            const rate = Math.round(result.rate / 10) * 10;
-            const change = result.changePercent || 0;
-            const source = result.source || 'Nobitex+Wallex';
+        if (result.success && result.rate && result.rate > 100000) {
+            rate = Math.round(result.rate / 10) * 10;
+            change = result.changePercent || 0;
+            source = result.source || 'Backend';
+        } else {
+            const direct = await fetchRateDirect();
+            if (direct && direct.rate > 100000) {
+                rate = Math.round(direct.rate / 10) * 10;
+                source = direct.source || 'Direct API';
+                const prevRate = parseInt(localStorage.getItem('exchangeRate')) || rate;
+                change = prevRate > 0 ? ((rate - prevRate) / prevRate * 100).toFixed(1) : 0;
+            }
+        }
+        if (rate && rate > 100000) {
+            const prevRate = parseInt(localStorage.getItem('exchangeRate')) || rate;
             rateLastFetchTime = Date.now();
+            localStorage.setItem('exchangeRate', rate);
+            localStorage.setItem('exchangeRateSource', source);
             flashPricesOnChange(rate);
 
             const arrow = change > 0 ? '▲' : change < 0 ? '▼' : '◆';
