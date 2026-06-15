@@ -1,5 +1,10 @@
-const API_URL = 'http://localhost:3000/api';
 const API = {};
+
+// Auto-detect API URL: localhost for dev, try relative /api for production
+const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const API_URL = isLocalhost ? 'http://localhost:3000/api' : '/api';
+
+console.log('[API] Environment:', isLocalhost ? 'localhost' : 'production', '| API_URL:', API_URL);
 
 // Generic fetch wrapper with error handling
 async function apiRequest(endpoint, options = {}) {
@@ -8,8 +13,9 @@ async function apiRequest(endpoint, options = {}) {
         const headers = { 'Content-Type': 'application/json', ...options.headers };
         if (token) headers['Authorization'] = `Bearer ${token}`;
         
-        console.log(`[API] Request: ${API_URL}${endpoint}`);
-        const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
+        const url = `${API_URL}${endpoint}`;
+        console.log(`[API] Request: ${url}`);
+        const response = await fetch(url, { ...options, headers });
         console.log(`[API] Response: ${response.status} ${response.statusText}`);
         
         if (!response.ok) {
@@ -360,6 +366,18 @@ let lastDisplayedRate = parseInt(localStorage.getItem('exchangeRate')) || FALLBA
 let rateLastFetchTime = 0;
 let liveTimerInterval = null;
 
+async function fetchDirect(url, name) {
+    try {
+        const res = await fetch(url, { mode: 'cors' });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return { data, source: name };
+    } catch (e) {
+        console.warn('Direct fetch failed for', name, e);
+        return null;
+    }
+}
+
 async function fetchWithProxy(url, name) {
     try {
         const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
@@ -375,7 +393,8 @@ async function fetchWithProxy(url, name) {
 }
 
 async function fetchRateFromNobitex() {
-    const result = await fetchWithProxy('https://api.nobitex.ir/v2/orderbook/USDTIRT', 'Nobitex');
+    let result = await fetchDirect('https://api.nobitex.ir/v2/orderbook/USDTIRT', 'Nobitex');
+    if (!result) result = await fetchWithProxy('https://api.nobitex.ir/v2/orderbook/USDTIRT', 'Nobitex');
     if (!result) return null;
     const data = result.data;
     if (data && data.lastTradePrice) return { rate: parseInt(data.lastTradePrice), source: 'Nobitex' };
@@ -384,7 +403,8 @@ async function fetchRateFromNobitex() {
 }
 
 async function fetchRateFromWallex() {
-    const result = await fetchWithProxy('https://api.wallex.ir/v1/markets', 'Wallex');
+    let result = await fetchDirect('https://api.wallex.ir/v1/markets', 'Wallex');
+    if (!result) result = await fetchWithProxy('https://api.wallex.ir/v1/markets', 'Wallex');
     if (!result) return null;
     const data = result.data;
     if (data && data.result && data.result.markets && data.result.markets.USDTIRT) {
@@ -416,7 +436,7 @@ async function fetchRateFromFreeCurrencyAPI() {
         if (!res.ok) return null;
         const data = await res.json();
         if (data && data.usd && data.usd.irr) {
-            const rate = Math.round(data.usd.irr * 1.015); // slight adjustment for market rate
+            const rate = Math.round(data.usd.irr * 1.015);
             return { rate, source: 'CurrencyAPI' };
         }
         return null;
@@ -434,15 +454,13 @@ async function fetchRateDirect() {
         fetchRateFromFreeCurrencyAPI()
     ];
     const results = await Promise.allSettled(fetchers);
-    const rates = results
-        .filter(r => r.status === 'fulfilled' && r.value && r.value.rate > 100000)
-        .map(r => r.value.rate);
-    if (rates.length === 0) return null;
+    const validResults = results
+        .filter(r => r.status === 'fulfilled' && r.value && r.value.rate > 100000);
+    if (validResults.length === 0) return null;
+    const rates = validResults.map(r => r.value.rate);
     rates.sort((a, b) => a - b);
     const mid = rates[Math.floor(rates.length / 2)];
-    const sources = results
-        .filter(r => r.status === 'fulfilled' && r.value && r.value.rate > 100000)
-        .map(r => r.value.source);
+    const sources = validResults.map(r => r.value.source);
     console.log('Exchange rate sources:', sources, 'rates:', rates, 'median:', mid);
     return { rate: mid, source: sources.join('+') || 'API' };
 }

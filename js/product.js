@@ -57,6 +57,15 @@ async function loadProduct(productId, retries) {
     if (skeleton) skeleton.style.display = 'none';
     
     if (!product) {
+        // Try local database as last resort before giving up
+        if (typeof productsDatabase !== 'undefined') {
+            const localProduct = productsDatabase.find(p => p.id == productId);
+            if (localProduct) {
+                console.log('[Product] Using local database fallback for product:', productId);
+                return renderProduct(localProduct);
+            }
+        }
+        
         // Retry only on network errors (server might be starting up)
         if (retries > 0 && result.networkError) {
             console.log('[Product] Network error, retrying...', retries);
@@ -80,7 +89,14 @@ async function loadProduct(productId, retries) {
         `;
         return;
     }
+    
+    renderProduct(product);
+}
 
+    renderProduct(product);
+}
+
+function renderProduct(product) {
     currentProduct = product;
     document.title = product.name + ' | ارزان کالا';
 
@@ -599,10 +615,12 @@ function loadPriceHistoryChart(productId) {
     if (!canvas) return;
 
     const loadAndRender = function() {
-        if (priceHistoryChartInstance) {
-            priceHistoryChartInstance.destroy();
-            priceHistoryChartInstance = null;
+        // Use Chart.js built-in registry to find and destroy existing chart
+        const existingChart = Chart.getChart(canvas);
+        if (existingChart) {
+            existingChart.destroy();
         }
+        priceHistoryChartInstance = null;
 
         let dataPoints, labels;
         const basePrice = currentProduct ? currentProduct.price : 17000000;

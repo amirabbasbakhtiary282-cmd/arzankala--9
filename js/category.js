@@ -188,20 +188,47 @@
         const params = { ...currentParams, page: currentPage, limit: currentPerPage };
         const result = await window.API.getProducts(params);
 
-        if (!result.success) {
-            grid.innerHTML = `<div class="cat-empty">
-                <div class="cat-empty-icon"><i class="fa fa-exclamation-triangle"></i></div>
-                <div class="cat-empty-title">خطا در دریافت محصولات</div>
-                <div class="cat-empty-desc">لطفاً دوباره تلاش کنید</div>
-            </div>`;
-            return;
+        let products = [];
+        let total = 0;
+        let pagination = null;
+
+        if (result.success && result.data) {
+            products = result.data;
+            total = result.pagination ? result.pagination.totalItems : products.length;
+            pagination = result.pagination;
+        } else {
+            console.warn('[Category] API failed, using local database fallback');
+            // Fallback to local database
+            if (typeof productsDatabase !== 'undefined') {
+                let filtered = [...productsDatabase];
+                if (currentParams.category) filtered = filtered.filter(p => p.category === currentParams.category);
+                if (currentParams.search) filtered = filtered.filter(p => p.name.toLowerCase().includes(currentParams.search.toLowerCase()));
+                if (currentParams.minPrice) filtered = filtered.filter(p => p.price >= currentParams.minPrice);
+                if (currentParams.maxPrice) filtered = filtered.filter(p => p <= currentParams.maxPrice);
+                
+                total = filtered.length;
+                // Simple pagination for local data
+                const start = (currentPage - 1) * currentPerPage;
+                products = filtered.slice(start, start + currentPerPage);
+                pagination = {
+                    currentPage: currentPage,
+                    totalPages: Math.ceil(total / currentPerPage),
+                    totalItems: total
+                };
+            } else {
+                grid.innerHTML = `<div class="cat-empty">
+                    <div class="cat-empty-icon"><i class="fa fa-exclamation-triangle"></i></div>
+                    <div class="cat-empty-title">خطا در دریافت محصولات</div>
+                    <div class="cat-empty-desc">لطفاً دوباره تلاش کنید</div>
+                </div>`;
+                return;
+            }
         }
 
-        allProducts = result.data || [];
+        allProducts = products;
         renderProducts(allProducts, currentParams.search || '');
-        updatePagination(result.pagination);
+        updatePagination(pagination);
 
-        const total = result.pagination ? result.pagination.totalItems : allProducts.length;
         document.getElementById('productCount').innerHTML = '<i class="fa fa-box-open"></i> ' + toFaNum(total) + ' محصول';
         document.getElementById('resultsInfo').textContent =
             'نمایش ' + toFaNum(Math.min((currentPage - 1) * currentPerPage + 1, total)) +
