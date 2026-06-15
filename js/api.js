@@ -361,40 +361,59 @@ API.getCart = function() {
 };
 
 // ========== EXCHANGE RATE ==========
-const FALLBACK_RATE = 1750000;
+// Fallback rate in Rial (approx 58,000 Toman = 580,000 Rial)
+const FALLBACK_RATE = 580000;
+// Clear old cached rate if it's unrealistic (> 2M Rial = 200k Toman)
+const cachedRate = parseInt(localStorage.getItem('exchangeRate'));
+if (cachedRate && cachedRate > 2000000) {
+    localStorage.removeItem('exchangeRate');
+    localStorage.removeItem('exchangeRateTime');
+    localStorage.removeItem('exchangeRateSource');
+}
 let lastDisplayedRate = parseInt(localStorage.getItem('exchangeRate')) || FALLBACK_RATE;
 let rateLastFetchTime = 0;
 let liveTimerInterval = null;
 
-async function fetchDirect(url, name) {
-    try {
-        const res = await fetch(url, { mode: 'cors' });
-        if (!res.ok) return null;
-        const data = await res.json();
-        return { data, source: name };
-    } catch (e) {
-        console.warn('Direct fetch failed for', name, e);
-        return null;
+// Multiple proxy services for CORS
+const PROXIES = [
+    'https://api.allorigins.win/raw?url=',
+    'https://corsproxy.io/?',
+    'https://thingproxy.freeboard.io/fetch/'
+];
+
+async function fetchViaProxy(url, name) {
+    for (const proxy of PROXIES) {
+        try {
+            const proxyUrl = proxy + encodeURIComponent(url);
+            const res = await fetch(proxyUrl);
+            if (!res.ok) continue;
+            const text = await res.text();
+            const data = JSON.parse(text);
+            console.log(`[ExchangeRate] ${name} via proxy success:`, data);
+            return { data, source: name };
+        } catch (e) {
+            console.warn(`[ExchangeRate] ${name} proxy failed:`, e.message);
+        }
     }
+    return null;
 }
 
-async function fetchWithProxy(url, name) {
+async function fetchDirect(url, name) {
     try {
-        const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-        const res = await fetch(proxyUrl);
+        const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
         if (!res.ok) return null;
-        const text = await res.text();
-        const data = JSON.parse(text);
+        const data = await res.json();
+        console.log(`[ExchangeRate] ${name} direct success:`, data);
         return { data, source: name };
     } catch (e) {
-        console.warn('fetchWithProxy failed for', name, e);
+        console.warn('[ExchangeRate] Direct fetch failed for', name, e);
         return null;
     }
 }
 
 async function fetchRateFromNobitex() {
     let result = await fetchDirect('https://api.nobitex.ir/v2/orderbook/USDTIRT', 'Nobitex');
-    if (!result) result = await fetchWithProxy('https://api.nobitex.ir/v2/orderbook/USDTIRT', 'Nobitex');
+    if (!result) result = await fetchViaProxy('https://api.nobitex.ir/v2/orderbook/USDTIRT', 'Nobitex');
     if (!result) return null;
     const data = result.data;
     if (data && data.lastTradePrice) return { rate: parseInt(data.lastTradePrice), source: 'Nobitex' };
@@ -404,7 +423,7 @@ async function fetchRateFromNobitex() {
 
 async function fetchRateFromWallex() {
     let result = await fetchDirect('https://api.wallex.ir/v1/markets', 'Wallex');
-    if (!result) result = await fetchWithProxy('https://api.wallex.ir/v1/markets', 'Wallex');
+    if (!result) result = await fetchViaProxy('https://api.wallex.ir/v1/markets', 'Wallex');
     if (!result) return null;
     const data = result.data;
     if (data && data.result && data.result.markets && data.result.markets.USDTIRT) {
@@ -413,35 +432,35 @@ async function fetchRateFromWallex() {
     return null;
 }
 
-async function fetchRateFromTGJU() {
+async function fetchRateFromCoinGecko() {
     try {
-        const res = await fetch('https://www.tgju.org/profile/price_dollar_rl');
+        // CoinGecko free API - supports CORS
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=irr');
         if (!res.ok) return null;
-        const html = await res.text();
-        const match = html.match(/class="price[^"]*"[^>]*>\s*([\d,]+)\s*</);
-        if (match) {
-            const price = parseInt(match[1].replace(/,/g, ''));
-            if (price > 100000) return { rate: price, source: 'TGJU' };
+        const data = await res.json();
+        if (data && data.tether && data.tether.irr) {
+            // CoinGecko gives USDT/IRR, close to USD/IRR
+            return { rate: Math.round(data.tether.irr * 1.01), source: 'CoinGecko' };
         }
         return null;
     } catch (e) {
-        console.warn('TGJU fetch failed', e);
+        console.warn('[ExchangeRate] CoinGecko failed', e);
         return null;
     }
 }
 
-async function fetchRateFromFreeCurrencyAPI() {
+async function fetchRateFromCurrencyLayer() {
     try {
+        // Free currency API that supports CORS
         const res = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
         if (!res.ok) return null;
         const data = await res.json();
         if (data && data.usd && data.usd.irr) {
-            const rate = Math.round(data.usd.irr * 1.015);
-            return { rate, source: 'CurrencyAPI' };
+            return { rate: Math.round(data.usd.irr * 1.015), source: 'CurrencyAPI' };
         }
         return null;
     } catch (e) {
-        console.warn('CurrencyAPI fetch failed', e);
+        console.warn('[ExchangeRate] CurrencyAPI failed', e);
         return null;
     }
 }
@@ -450,8 +469,8 @@ async function fetchRateDirect() {
     const fetchers = [
         fetchRateFromNobitex(),
         fetchRateFromWallex(),
-        fetchRateFromTGJU(),
-        fetchRateFromFreeCurrencyAPI()
+        fetchRateFromCoinGecko(),
+        fetchRateFromCurrencyLayer()
     ];
     const results = await Promise.allSettled(fetchers);
     const validResults = results
@@ -573,13 +592,14 @@ API.displayExchangeRate = async function() {
             const dotColor = change > 0 ? '#ff5252' : change < 0 ? '#ffc107' : '#00c853';
             const liveDot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + dotColor + ';animation:pulse 1.5s ease-in-out infinite;margin:0 4px;vertical-align:middle;"></span>';
 
+            const rateToman = Math.round(rate / 10);
             container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;direction:rtl;">' +
                 '<span style="display:flex;align-items:center;gap:4px;">' +
                 liveDot +
                 '<span style="color:var(--text-muted);font-size:0.8rem;">نرخ لحظه‌ای</span>' +
                 '</span>' +
                 '<span style="background:linear-gradient(135deg,rgba(0,200,83,0.15),rgba(0,200,83,0.05));padding:2px 16px;border-radius:20px;border:1px solid rgba(0,200,83,0.2);">' +
-                '<strong id="rateValue" style="color:var(--green-primary);font-size:1.1rem;letter-spacing:0.5px;font-family:monospace;">' + rate.toLocaleString() + '</strong>' +
+                '<strong id="rateValue" style="color:var(--green-primary);font-size:1.1rem;letter-spacing:0.5px;font-family:monospace;">' + rateToman.toLocaleString() + '</strong>' +
                 ' <span style="color:var(--text-muted);font-size:0.75rem;">تومان</span>' +
                 '</span>' +
                 '<span style="color:' + arrowColor + ';font-weight:bold;font-size:0.85rem;background:rgba(' + (change > 0 ? '255,82,82' : '0,200,83') + ',0.1);padding:1px 10px;border-radius:10px;">' + arrow + ' ' + (change > 0 ? '+' : '') + change + '%</span>' +
@@ -587,13 +607,15 @@ API.displayExchangeRate = async function() {
                 '<span style="color:#555;font-size:0.6rem;border:1px solid #333;border-radius:4px;padding:0 6px;">' + source + '</span>' +
                 '</div>';
         } else {
-            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#888;"></span><span style="color:#888;"><i class="fa fa-exchange-alt ms-1"></i> نرخ دلار: <strong>' + lastDisplayedRate.toLocaleString() + '</strong> تومان</span></div>';
+            const fallbackToman = Math.round(lastDisplayedRate / 10);
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#888;"></span><span style="color:#888;"><i class="fa fa-exchange-alt ms-1"></i> نرخ دلار: <strong>' + fallbackToman.toLocaleString() + '</strong> تومان</span></div>';
         }
     } catch(e) {
         console.error('displayExchangeRate error:', e);
         const cached = localStorage.getItem('exchangeRate');
         if (cached) {
-            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#888;"></span><span style="color:#888;"><i class="fa fa-exchange-alt ms-1"></i> نرخ دلار: <strong>' + parseInt(cached).toLocaleString() + '</strong> تومان</span></div>';
+            const cachedToman = Math.round(parseInt(cached) / 10);
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#888;"></span><span style="color:#888;"><i class="fa fa-exchange-alt ms-1"></i> نرخ دلار: <strong>' + cachedToman.toLocaleString() + '</strong> تومان</span></div>';
         }
     }
     if (liveTimerInterval) clearInterval(liveTimerInterval);
