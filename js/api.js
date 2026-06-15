@@ -355,36 +355,85 @@ API.getCart = function() {
 };
 
 // ========== EXCHANGE RATE ==========
-const FALLBACK_RATE = 750000;
+const FALLBACK_RATE = 1750000;
 let lastDisplayedRate = parseInt(localStorage.getItem('exchangeRate')) || FALLBACK_RATE;
 let rateLastFetchTime = 0;
 let liveTimerInterval = null;
 
-async function fetchRateFromNobitex() {
+async function fetchWithProxy(url, name) {
     try {
-        const res = await fetch('https://api.nobitex.ir/v2/orderbook/USDTIRT');
+        const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+        const res = await fetch(proxyUrl);
         if (!res.ok) return null;
-        const data = await res.json();
-        if (data && data.lastTradePrice) return { rate: parseInt(data.lastTradePrice), source: 'Nobitex' };
-        if (data && data.asks && data.asks.length > 0) return { rate: parseInt(data.asks[0].price), source: 'Nobitex' };
+        const text = await res.text();
+        const data = JSON.parse(text);
+        return { data, source: name };
+    } catch (e) {
+        console.warn('fetchWithProxy failed for', name, e);
         return null;
-    } catch (e) { return null; }
+    }
+}
+
+async function fetchRateFromNobitex() {
+    const result = await fetchWithProxy('https://api.nobitex.ir/v2/orderbook/USDTIRT', 'Nobitex');
+    if (!result) return null;
+    const data = result.data;
+    if (data && data.lastTradePrice) return { rate: parseInt(data.lastTradePrice), source: 'Nobitex' };
+    if (data && data.asks && data.asks.length > 0) return { rate: parseInt(data.asks[0].price), source: 'Nobitex' };
+    return null;
 }
 
 async function fetchRateFromWallex() {
+    const result = await fetchWithProxy('https://api.wallex.ir/v1/markets', 'Wallex');
+    if (!result) return null;
+    const data = result.data;
+    if (data && data.result && data.result.markets && data.result.markets.USDTIRT) {
+        return { rate: parseInt(data.result.markets.USDTIRT.price), source: 'Wallex' };
+    }
+    return null;
+}
+
+async function fetchRateFromTGJU() {
     try {
-        const res = await fetch('https://api.wallex.ir/v1/markets');
+        const res = await fetch('https://www.tgju.org/profile/price_dollar_rl');
         if (!res.ok) return null;
-        const data = await res.json();
-        if (data && data.result && data.result.markets && data.result.markets.USDTIRT) {
-            return { rate: parseInt(data.result.markets.USDTIRT.price), source: 'Wallex' };
+        const html = await res.text();
+        const match = html.match(/class="price[^"]*"[^>]*>\s*([\d,]+)\s*</);
+        if (match) {
+            const price = parseInt(match[1].replace(/,/g, ''));
+            if (price > 100000) return { rate: price, source: 'TGJU' };
         }
         return null;
-    } catch (e) { return null; }
+    } catch (e) {
+        console.warn('TGJU fetch failed', e);
+        return null;
+    }
+}
+
+async function fetchRateFromFreeCurrencyAPI() {
+    try {
+        const res = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data && data.usd && data.usd.irr) {
+            const rate = Math.round(data.usd.irr * 1.015); // slight adjustment for market rate
+            return { rate, source: 'CurrencyAPI' };
+        }
+        return null;
+    } catch (e) {
+        console.warn('CurrencyAPI fetch failed', e);
+        return null;
+    }
 }
 
 async function fetchRateDirect() {
-    const results = await Promise.allSettled([fetchRateFromNobitex(), fetchRateFromWallex()]);
+    const fetchers = [
+        fetchRateFromNobitex(),
+        fetchRateFromWallex(),
+        fetchRateFromTGJU(),
+        fetchRateFromFreeCurrencyAPI()
+    ];
+    const results = await Promise.allSettled(fetchers);
     const rates = results
         .filter(r => r.status === 'fulfilled' && r.value && r.value.rate > 100000)
         .map(r => r.value.rate);
@@ -394,6 +443,7 @@ async function fetchRateDirect() {
     const sources = results
         .filter(r => r.status === 'fulfilled' && r.value && r.value.rate > 100000)
         .map(r => r.value.source);
+    console.log('Exchange rate sources:', sources, 'rates:', rates, 'median:', mid);
     return { rate: mid, source: sources.join('+') || 'API' };
 }
 
@@ -412,7 +462,9 @@ API.getExchangeRate = async () => {
             localStorage.setItem('exchangeRateChangePercent', result.changePercent || 0);
             return rate;
         }
-    } catch (e) {}
+    } catch (e) {
+        console.warn('Backend exchange rate failed:', e);
+    }
     const direct = await fetchRateDirect();
     if (direct && direct.rate > 100000) {
         const rate = Math.round(direct.rate / 10) * 10;
@@ -422,8 +474,10 @@ API.getExchangeRate = async () => {
         localStorage.setItem('exchangeRateSource', direct.source);
         localStorage.setItem('exchangeRateLastUpdate', new Date().toISOString());
         localStorage.setItem('exchangeRateChange', (rate - prev));
+        console.log('Got direct exchange rate:', rate, 'from', direct.source);
         return rate;
     }
+    console.warn('All exchange rate sources failed, using cached/fallback');
     const cached = localStorage.getItem('exchangeRate');
     return cached ? parseInt(cached) : FALLBACK_RATE;
 };
@@ -461,14 +515,18 @@ function updateBannerTimer() {
 }
 
 API.displayExchangeRate = async function() {
-    const container = document.getElementById('exchangeRateDisplay') || (function() {
-        const el = document.createElement('div');
-        el.id = 'exchangeRateDisplay';
-        el.style.cssText = 'text-align:center;padding:6px 0;background:var(--bg-navbar);border-bottom:1px solid var(--border-color);font-size:0.8rem;transition:all 0.3s ease;direction:ltr;';
-        const nav = document.querySelector('nav');
-        if (nav) nav.parentNode.insertBefore(el, nav);
-        return el;
-    })();
+    let container = document.getElementById('exchangeRateDisplay');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'exchangeRateDisplay';
+        container.style.cssText = 'text-align:center;padding:6px 0;background:var(--bg-navbar);border-bottom:1px solid var(--border-color);font-size:0.8rem;transition:all 0.3s ease;direction:ltr;';
+        const nav = document.querySelector('nav') || document.querySelector('header') || document.body;
+        if (nav && nav.parentNode) {
+            nav.parentNode.insertBefore(container, nav);
+        } else {
+            document.body.prepend(container);
+        }
+    }
     try {
         let rate = null, change = 0, source = '';
         const result = await apiRequest('/exchange-rate');
@@ -514,6 +572,7 @@ API.displayExchangeRate = async function() {
             container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#888;"></span><span style="color:#888;"><i class="fa fa-exchange-alt ms-1"></i> نرخ دلار: <strong>' + lastDisplayedRate.toLocaleString() + '</strong> تومان</span></div>';
         }
     } catch(e) {
+        console.error('displayExchangeRate error:', e);
         const cached = localStorage.getItem('exchangeRate');
         if (cached) {
             container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#888;"></span><span style="color:#888;"><i class="fa fa-exchange-alt ms-1"></i> نرخ دلار: <strong>' + parseInt(cached).toLocaleString() + '</strong> تومان</span></div>';
