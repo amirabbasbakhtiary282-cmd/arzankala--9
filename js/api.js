@@ -580,7 +580,7 @@ API.getExchangeRate = async () => {
     if (!isLocalhost) {
         const direct = await fetchRateDirect();
         if (direct && direct.rate > 10000) {
-            const rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 - direct.rate is already Toman
+            const rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 Toman
             localStorage.setItem('exchangeRate', rate);
             rateLastFetchTime = Date.now();
             localStorage.setItem('exchangeRateTime', rateLastFetchTime.toString());
@@ -666,22 +666,22 @@ API.displayExchangeRate = async function() {
             // Static hosting - use direct fetch only
             const direct = await fetchRateDirect();
             if (direct && direct.rate > 10000) {
-                rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 Toman
+                rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 Toman (direct.rate already Toman)
                 source = direct.source || 'Direct API';
                 const prevRate = parseInt(localStorage.getItem('exchangeRate')) || rate;
                 change = prevRate > 0 ? ((rate - prevRate) / prevRate * 100).toFixed(1) : 0;
             }
         } else {
-            // Localhost - try backend
+            // Localhost - try backend (backend returns Rial)
             const result = await apiRequest('/exchange-rate');
             if (result.success && result.rate && result.rate > 100000) {
-                rate = Math.round(result.rate / 10) * 10; // Backend returns Rial
+                rate = Math.round(result.rate / 10) * 10; // Convert Rial to Toman
                 change = result.changePercent || 0;
                 source = result.source || 'Backend';
             } else {
                 const direct = await fetchRateDirect();
                 if (direct && direct.rate > 10000) {
-                    rate = Math.round(direct.rate / 10) * 10;
+                    rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 Toman
                     source = direct.source || 'Direct API';
                     const prevRate = parseInt(localStorage.getItem('exchangeRate')) || rate;
                     change = prevRate > 0 ? ((rate - prevRate) / prevRate * 100).toFixed(1) : 0;
