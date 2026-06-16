@@ -1,20 +1,21 @@
 const API = {};
 
-// Auto-detect API URL: localhost for dev, try relative /api for production
+// Load config from config.js
 const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-const API_URL = isLocalhost ? 'http://localhost:3000/api' : '/api';
+const CONFIG = window.CONFIG || { API_URL: '', isLocalhost, useLocalData: () => true };
+const API_URL = CONFIG.API_URL || (isLocalhost ? 'http://localhost:3000/api' : '');
 
-console.log('[API] Environment:', isLocalhost ? 'localhost' : 'production', '| API_URL:', API_URL);
+console.log('[API] Environment:', isLocalhost ? 'localhost' : 'production', '| API_URL:', API_URL || 'local data mode');
 
 // Flag to track if backend is available
-let backendAvailable = isLocalhost;
+let backendAvailable = isLocalhost && !!API_URL;
 
 // Generic fetch wrapper with error handling
 async function apiRequest(endpoint, options = {}) {
-    // On production (GitHub Pages), don't even try /api/ endpoints - they 404
-    if (!isLocalhost && !backendAvailable) {
+    // If no backend configured (GitHub Pages), use local data directly
+    if (!API_URL || (!isLocalhost && !backendAvailable)) {
         console.log(`[API] Skipping ${endpoint} - using local data directly`);
-        return { success: false, error: 'Static hosting - using local data', networkError: true, skipBackend: true };
+        return { success: false, error: 'No backend configured - using local data', networkError: true, skipBackend: true };
     }
     
     try {
