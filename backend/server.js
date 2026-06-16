@@ -40,6 +40,10 @@ async function startServer() {
     try {
         const collections = await connectDB();
 
+        // Seed database (create admin user, etc.)
+        const { seedDatabase } = require('./seed');
+        await seedDatabase();
+
         // Set collections on controllers
         productController.setCollection(collections.productsCollection);
         userController.setCollection(collections.usersCollection);
