@@ -326,7 +326,12 @@ function displayProductInfo(product) {
 
     const priceEl = document.getElementById('productPrice');
     if (priceEl) {
-        priceEl.innerHTML = '<span class="price-live fw-bold text-success" data-live-price="' + (product.priceUSD || (product.price / 750000)) + '">' + product.price.toLocaleString() + '</span> <span class="text-muted fs-6">تومان</span>' +
+        // For local products: price is hardcoded Toman, priceUSD is reference only
+        // For backend products: price is calculated from priceUSD at current rate
+        // Use priceUSD if available, else calculate from hardcoded price at fallback rate (58000 Toman/USD)
+        const fallbackRateToman = 58000;
+        const livePriceUSD = product.priceUSD || (product.price / fallbackRateToman);
+        priceEl.innerHTML = '<span class="price-live fw-bold text-success" data-live-price="' + livePriceUSD + '">' + product.price.toLocaleString() + '</span> <span class="text-muted fs-6">تومان</span>' +
             '<span class="badge bg-success bg-opacity-10 text-success me-2 price-live-badge"><i class="fa fa-bolt ms-1"></i>قیمت لحظه‌ای</span>';
     }
 
@@ -1455,7 +1460,7 @@ async function loadRelatedProducts(product) {
             '</div>' +
             '<div class="card-body p-2">' +
             '<h6 class="card-title small fw-bold text-truncate">' + escapeHtml(p.name) + '</h6>' +
-            '<div class="text-success small fw-bold price-live" data-live-price="' + (p.priceUSD || (p.price / 750000)) + '">' + p.price.toLocaleString() + ' <span class="text-muted small fw-normal">تومان</span></div>' +
+            '<div class="text-success small fw-bold price-live" data-live-price="' + (p.priceUSD || (p.price / 58000)) + '">' + p.price.toLocaleString() + ' <span class="text-muted small fw-normal">تومان</span></div>' +
             (p.oldPrice && p.oldPrice > p.price ? '<div class="text-muted text-decoration-line-through small">' + p.oldPrice.toLocaleString() + ' تومان</div>' : '') +
             '<div class="small text-muted mt-1">' + renderStars(p.rating || 0) + ' ' + (p.rating || 0).toFixed(1) + '</div>' +
             '<a href="./product.html?id=' + p.id + '" class="btn btn-outline-success btn-sm w-100 mt-2"><i class="fa fa-eye ms-1"></i> مشاهده</a>' +

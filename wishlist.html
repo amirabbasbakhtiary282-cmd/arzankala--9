@@ -104,7 +104,7 @@
 
             function createProductCard(product) {
                 const discount = computeDiscount(product.price, product.oldPrice);
-                const livePrice = product.priceUsd ? product.priceUsd : null;
+                const livePrice = product.priceUSD || product.priceUsd ? (product.priceUSD || product.priceUsd) : (product.price / 58000);
                 return '<div class="col-sm-6 col-md-4 col-lg-3 wishlist-card-wrapper" data-id="' + product.id + '">' +
                     '<div class="glass-card product-card h-100 d-flex flex-column" style="transition:all 0.3s ease;overflow:hidden;position:relative;">' +
                         '<a href="product.html?id=' + product.id + '" class="text-decoration-none">' +

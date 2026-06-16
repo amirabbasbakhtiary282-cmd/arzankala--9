@@ -289,7 +289,7 @@
                         <div class="cat-card-price-wrap">
                             <div class="cat-card-price">
                                 <span class="cat-card-price-unit">تومان</span>
-                                <span class="price-live" data-live-price="${p.priceUSD || (p.price / 750000)}">${p.price.toLocaleString()}</span>
+                                <span class="price-live" data-live-price="${p.priceUSD || (p.price / 58000)}">${p.price.toLocaleString()}</span>
                             </div>
                             ${p.oldPrice ? '<div class="cat-card-old-price">' + p.oldPrice.toLocaleString() + ' تومان</div>' : ''}
                         </div>

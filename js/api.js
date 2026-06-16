@@ -6,8 +6,17 @@ const API_URL = isLocalhost ? 'http://localhost:3000/api' : '/api';
 
 console.log('[API] Environment:', isLocalhost ? 'localhost' : 'production', '| API_URL:', API_URL);
 
+// Flag to track if backend is available
+let backendAvailable = isLocalhost;
+
 // Generic fetch wrapper with error handling
 async function apiRequest(endpoint, options = {}) {
+    // On production (GitHub Pages), don't even try /api/ endpoints - they 404
+    if (!isLocalhost && !backendAvailable) {
+        console.log(`[API] Skipping ${endpoint} - using local data directly`);
+        return { success: false, error: 'Static hosting - using local data', networkError: true, skipBackend: true };
+    }
+    
     try {
         const token = localStorage.getItem('token');
         const headers = { 'Content-Type': 'application/json', ...options.headers };
@@ -18,16 +27,28 @@ async function apiRequest(endpoint, options = {}) {
         const response = await fetch(url, { ...options, headers });
         console.log(`[API] Response: ${response.status} ${response.statusText}`);
         
+        // If we get HTML instead of JSON (GitHub Pages returns index.html for 404), backend is not available
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            backendAvailable = false;
+            console.warn('[API] Backend not available (non-JSON response), switching to local data mode');
+            return { success: false, error: 'Backend unavailable', networkError: true, skipBackend: true };
+        }
+        
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'خطای سرور' }));
             const errMsg = errorData.error || `HTTP ${response.status}`;
             console.error(`[API] Error ${response.status}:`, errMsg);
+            if (response.status === 404 || response.status === 503) {
+                backendAvailable = false;
+            }
             return { success: false, error: errMsg, status: response.status, code: errorData.code };
         }
         const data = await response.json();
         return data;
     } catch (error) {
         console.error(`[API] Network Error [${endpoint}]:`, error);
+        backendAvailable = false;
         return { success: false, error: error.message, networkError: true };
     }
 }
@@ -520,6 +541,7 @@ API.getExchangeRate = async () => {
 };
 
 function flashPricesOnChange(newRate) {
+    // newRate is already in Toman (converted from Rial in getExchangeRate/displayExchangeRate)
     if (!lastDisplayedRate || lastDisplayedRate === 0) { lastDisplayedRate = newRate; return; }
     if (newRate === lastDisplayedRate) return;
     const dir = newRate > lastDisplayedRate ? 'up' : 'down';
@@ -533,7 +555,8 @@ function flashPricesOnChange(newRate) {
     document.querySelectorAll('[data-live-price]').forEach(el => {
         const usd = parseFloat(el.getAttribute('data-live-price'));
         if (!isNaN(usd) && usd > 0) {
-            const newToman = Math.round(usd * newRate / 10) * 10;
+            // newRate is already Toman per USD, so: USD * Toman_per_USD = Toman
+            const newToman = Math.round(usd * newRate);
             el.textContent = newToman.toLocaleString();
         }
     });
