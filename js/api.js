@@ -575,7 +575,7 @@ API.getExchangeRate = async () => {
     if (!isLocalhost) {
         const direct = await fetchRateDirect();
         if (direct && direct.rate > 10000) {
-            const rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10
+            const rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 - direct.rate is already Toman
             localStorage.setItem('exchangeRate', rate);
             rateLastFetchTime = Date.now();
             localStorage.setItem('exchangeRateTime', rateLastFetchTime.toString());

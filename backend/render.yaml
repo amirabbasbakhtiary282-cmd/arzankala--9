@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: arzankala-backend
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: BCRYPT_SALT
+        value: 10
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        value: https://amirabbasbakhtiary282-cmd.github.io/arzankala--9
