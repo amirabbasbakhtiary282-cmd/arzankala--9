@@ -147,6 +147,7 @@ API.searchProducts = async (query) => {
         if (!result.skipBackend && !result.networkError) return { success: false, data: [], totalResults: 0 };
     }
     // Fallback to local data
+    if (typeof productsDatabase !== 'undefined') {
         const filtered = productsDatabase.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
         return { success: true, data: filtered, totalResults: filtered.length };
     }
@@ -161,7 +162,7 @@ API.getSmartRecommendations = async (usage, budget, urgency, limit = 8) => {
         if (!result.skipBackend && !result.networkError) return [];
     }
     // Local fallback algorithm
-        if (typeof productsDatabase !== 'undefined') {
+    if (typeof productsDatabase !== 'undefined') {
             let products = [...productsDatabase];
             if (usage === 'gaming') products = products.filter(p => ['laptop','monitor'].includes(p.category));
             else if (usage === 'student') products = products.filter(p => ['laptop','tablet','mobile'].includes(p.category));
@@ -181,27 +182,6 @@ API.getSmartRecommendations = async (usage, budget, urgency, limit = 8) => {
         }
         return [];
     }
-    const result = await apiRequest(`/products/recommendations?usage=${usage}&budget=${budget}&urgency=${urgency}&limit=${limit}`);
-    if (result.success) return result.data;
-    // Fallback algorithm
-    let products = typeof productsDatabase !== 'undefined' ? [...productsDatabase] : [];
-    if (usage === 'gaming') products = products.filter(p => ['laptop','monitor'].includes(p.category));
-    else if (usage === 'student') products = products.filter(p => ['laptop','tablet','mobile'].includes(p.category));
-    else if (usage === 'office') products = products.filter(p => ['laptop','monitor','accessory'].includes(p.category));
-    // Score
-    const scored = products.map(p => {
-        let score = 0;
-        score += p.stock > 10 ? 10 : p.stock > 5 ? 7 : p.stock > 0 ? 3 : -10;
-        score += p.rating >= 4.5 ? 15 : p.rating >= 4 ? 10 : p.rating >= 3.5 ? 5 : 0;
-        if (p.oldPrice) { const d = ((p.oldPrice - p.price)/p.oldPrice)*100; score += d >= 20 ? 20 : d >= 10 ? 10 : d >= 5 ? 5 : 0; }
-        if (urgency === 'urgent' && p.stock > 3) score += 15;
-        if (usage === 'gaming' && ['laptop','monitor'].includes(p.category)) score += 10;
-        if (usage === 'student' && ['laptop','tablet','mobile'].includes(p.category)) score += 10;
-        if (usage === 'office' && ['laptop','monitor','accessory'].includes(p.category)) score += 10;
-        return { ...p, score };
-    });
-    scored.sort((a,b) => b.score - a.score);
-    return scored.slice(0, limit);
 };
 
 API.getRelatedProducts = async (productId, limit = 4) => {
@@ -212,6 +192,7 @@ API.getRelatedProducts = async (productId, limit = 4) => {
         if (!result.skipBackend && !result.networkError) return [];
     }
     // Fallback to local data
+    if (typeof productsDatabase !== 'undefined') {
         const product = productsDatabase.find(p => p.id == productId);
         if (product) return productsDatabase.filter(p => p.category === product.category && p.id != productId).slice(0, limit);
     }
