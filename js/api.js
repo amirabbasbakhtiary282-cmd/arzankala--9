@@ -55,6 +55,38 @@ async function apiRequest(endpoint, options = {}) {
 
 // ========== PRODUCTS ==========
 API.getProducts = async (params = {}) => {
+    // On static hosting, use local data directly
+    if (!isLocalhost) {
+        if (typeof productsDatabase !== 'undefined') {
+            let products = [...productsDatabase];
+            if (params.category) products = products.filter(p => p.category === params.category);
+            if (params.search) products = products.filter(p => p.name.includes(params.search));
+            if (params.minPrice) products = products.filter(p => p.price >= params.minPrice);
+            if (params.maxPrice) products = products.filter(p => p.price <= params.maxPrice);
+            const brandMap = {
+                'samsung': 'سامسونگ', 'apple': 'اپل', 'xiaomi': 'شیائومی', 'sony': 'سونی',
+                'lg': 'ال جی', 'asus': 'ایسوس', 'lenovo': 'لنوو', 'dell': 'دل',
+                'canon': 'کانن', 'nintendo': 'نینتندو', 'logitech': 'لاجیتک', 'jbl': 'جی‌بی‌ال'
+            };
+            if (params.brand) {
+                const brandLower = params.brand.toLowerCase();
+                const persianBrand = brandMap[brandLower] || brandLower;
+                products = products.filter(p => {
+                    const name = (p.name || '').toLowerCase();
+                    return name.includes(brandLower) || name.includes(persianBrand);
+                });
+            }
+            if (params.sort === 'price_asc') products.sort((a,b) => a.price - b.price);
+            else if (params.sort === 'price_desc') products.sort((a,b) => b.price - a.price);
+            else if (params.sort === 'rating') products.sort((a,b) => b.rating - a.rating);
+            const page = parseInt(params.page) || 1;
+            const limit = parseInt(params.limit) || 20;
+            const start = (page - 1) * limit;
+            const paginated = products.slice(start, start + limit);
+            return { success: true, data: paginated, pagination: { currentPage: page, totalPages: Math.ceil(products.length/limit), totalItems: products.length } };
+        }
+        return { success: false, data: [] };
+    }
     const query = new URLSearchParams(params).toString();
     const result = await apiRequest(`/products${query ? '?' + query : ''}`);
     if (result.success) return result;
@@ -65,20 +97,10 @@ API.getProducts = async (params = {}) => {
         if (params.search) products = products.filter(p => p.name.includes(params.search));
         if (params.minPrice) products = products.filter(p => p.price >= params.minPrice);
         if (params.maxPrice) products = products.filter(p => p.price <= params.maxPrice);
-        // Brand mapping for Persian names
         const brandMap = {
-            'samsung': 'سامسونگ',
-            'apple': 'اپل',
-            'xiaomi': 'شیائومی',
-            'sony': 'سونی',
-            'lg': 'ال جی',
-            'asus': 'ایسوس',
-            'lenovo': 'لنوو',
-            'dell': 'دل',
-            'canon': 'کانن',
-            'nintendo': 'نینتندو',
-            'logitech': 'لاجیتک',
-            'jbl': 'جی‌بی‌ال'
+            'samsung': 'سامسونگ', 'apple': 'اپل', 'xiaomi': 'شیائومی', 'sony': 'سونی',
+            'lg': 'ال جی', 'asus': 'ایسوس', 'lenovo': 'لنوو', 'dell': 'دل',
+            'canon': 'کانن', 'nintendo': 'نینتندو', 'logitech': 'لاجیتک', 'jbl': 'جی‌بی‌ال'
         };
         if (params.brand) {
             const brandLower = params.brand.toLowerCase();
@@ -88,11 +110,9 @@ API.getProducts = async (params = {}) => {
                 return name.includes(brandLower) || name.includes(persianBrand);
             });
         }
-        // Sorting
         if (params.sort === 'price_asc') products.sort((a,b) => a.price - b.price);
         else if (params.sort === 'price_desc') products.sort((a,b) => b.price - a.price);
         else if (params.sort === 'rating') products.sort((a,b) => b.rating - a.rating);
-        // Pagination
         const page = parseInt(params.page) || 1;
         const limit = parseInt(params.limit) || 20;
         const start = (page - 1) * limit;
@@ -103,6 +123,14 @@ API.getProducts = async (params = {}) => {
 };
 
 API.getProductById = async (id) => {
+    // On static hosting (GitHub Pages), skip backend entirely
+    if (!isLocalhost) {
+        if (typeof productsDatabase !== 'undefined') {
+            const localProduct = productsDatabase.find(p => p.id == id);
+            if (localProduct) return { product: localProduct, error: null };
+        }
+        return { product: null, error: 'محصول یافت نشد' };
+    }
     const result = await apiRequest(`/products/${id}`);
     if (result.success) return { product: result.data, error: null };
     // If product not found (404), don't fall back to local DB - return error
@@ -118,6 +146,10 @@ API.getProductById = async (id) => {
 };
 
 API.getProductsByCategory = async (category) => {
+    if (!isLocalhost) {
+        if (typeof productsDatabase !== 'undefined') return productsDatabase.filter(p => p.category === category);
+        return [];
+    }
     const result = await apiRequest(`/products/category/${category}`);
     if (result.success) return result.data;
     if (typeof productsDatabase !== 'undefined') return productsDatabase.filter(p => p.category === category);
@@ -125,6 +157,13 @@ API.getProductsByCategory = async (category) => {
 };
 
 API.searchProducts = async (query) => {
+    if (!isLocalhost) {
+        if (typeof productsDatabase !== 'undefined') {
+            const filtered = productsDatabase.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+            return { success: true, data: filtered, totalResults: filtered.length };
+        }
+        return { success: false, data: [], totalResults: 0 };
+    }
     const result = await apiRequest(`/products/search?q=${encodeURIComponent(query)}`);
     if (result.success) return result;
     if (typeof productsDatabase !== 'undefined') {
@@ -135,6 +174,28 @@ API.searchProducts = async (query) => {
 };
 
 API.getSmartRecommendations = async (usage, budget, urgency, limit = 8) => {
+    if (!isLocalhost) {
+        // Local fallback algorithm
+        if (typeof productsDatabase !== 'undefined') {
+            let products = [...productsDatabase];
+            if (usage === 'gaming') products = products.filter(p => ['laptop','monitor'].includes(p.category));
+            else if (usage === 'student') products = products.filter(p => ['laptop','tablet','mobile'].includes(p.category));
+            else if (usage === 'office') products = products.filter(p => ['laptop','monitor','accessory'].includes(p.category));
+            const scored = products.map(p => {
+                let score = 0;
+                score += p.stock > 10 ? 10 : p.stock > 5 ? 7 : p.stock > 0 ? 3 : -10;
+                score += p.rating >= 4.5 ? 15 : p.rating >= 4 ? 10 : p.rating >= 3.5 ? 5 : 0;
+                if (p.oldPrice) { const d = ((p.oldPrice - p.price)/p.oldPrice)*100; score += d >= 20 ? 20 : d >= 10 ? 10 : d >= 5 ? 5 : 0; }
+                if (urgency === 'urgent' && p.stock > 3) score += 15;
+                if (budget === 'low' && p.price < 5000000) score += 20;
+                if (budget === 'high' && p.price > 20000000) score += 20;
+                return { product: p, score };
+            });
+            scored.sort((a,b) => b.score - a.score);
+            return scored.slice(0, limit).map(s => s.product);
+        }
+        return [];
+    }
     const result = await apiRequest(`/products/recommendations?usage=${usage}&budget=${budget}&urgency=${urgency}&limit=${limit}`);
     if (result.success) return result.data;
     // Fallback algorithm
@@ -382,11 +443,11 @@ API.getCart = function() {
 };
 
 // ========== EXCHANGE RATE ==========
-// Fallback rate in Rial (approx 58,000 Toman = 580,000 Rial)
-const FALLBACK_RATE = 580000;
-// Clear old cached rate if it's unrealistic (> 2M Rial = 200k Toman)
+// Fallback rate in TOMAN (approx 58,000 Toman = 580,000 Rial)
+const FALLBACK_RATE = 58000;
+// Clear old cached rate if it's unrealistic (> 500k Toman)
 const cachedRate = parseInt(localStorage.getItem('exchangeRate'));
-if (cachedRate && cachedRate > 2000000) {
+if (cachedRate && cachedRate > 500000) {
     localStorage.removeItem('exchangeRate');
     localStorage.removeItem('exchangeRateTime');
     localStorage.removeItem('exchangeRateSource');
@@ -497,43 +558,49 @@ async function fetchRateDirect() {
     const validResults = results
         .filter(r => r.status === 'fulfilled' && r.value && r.value.rate > 100000);
     if (validResults.length === 0) return null;
-    const rates = validResults.map(r => r.value.rate);
-    rates.sort((a, b) => a - b);
-    const mid = rates[Math.floor(rates.length / 2)];
+    // APIs return RIAL - convert to TOMAN here (divide by 10)
+    const ratesRial = validResults.map(r => r.value.rate);
+    ratesRial.sort((a, b) => a - b);
+    const midRial = ratesRial[Math.floor(ratesRial.length / 2)];
+    const midToman = Math.round(midRial / 10); // Convert Rial -> Toman
     const sources = validResults.map(r => r.value.source);
-    console.log('Exchange rate sources:', sources, 'rates:', rates, 'median:', mid);
-    return { rate: mid, source: sources.join('+') || 'API' };
+    console.log('Exchange rate sources:', sources, 'rates(Rial):', ratesRial, 'median(Toman):', midToman);
+    return { rate: midToman, source: sources.join('+') || 'API' }; // Return TOMAN
 }
 
 API.getExchangeRate = async () => {
     const prev = parseInt(localStorage.getItem('exchangeRate')) || FALLBACK_RATE;
-    try {
-        const result = await apiRequest('/exchange-rate');
-        if (result.success && result.rate && result.rate > 100000) {
-            const rate = Math.round(result.rate / 10) * 10;
+    // Skip backend on static hosting
+    if (!isLocalhost) {
+        const direct = await fetchRateDirect();
+        if (direct && direct.rate > 10000) {
+            const rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10
             localStorage.setItem('exchangeRate', rate);
             rateLastFetchTime = Date.now();
             localStorage.setItem('exchangeRateTime', rateLastFetchTime.toString());
-            localStorage.setItem('exchangeRateSource', result.source || '؟');
-            localStorage.setItem('exchangeRateLastUpdate', result.lastUpdate || new Date().toISOString());
+            localStorage.setItem('exchangeRateSource', direct.source);
+            localStorage.setItem('exchangeRateLastUpdate', new Date().toISOString());
             localStorage.setItem('exchangeRateChange', (rate - prev));
-            localStorage.setItem('exchangeRateChangePercent', result.changePercent || 0);
+            console.log('Got direct exchange rate (Toman):', rate, 'from', direct.source);
             return rate;
         }
-    } catch (e) {
-        console.warn('Backend exchange rate failed:', e);
-    }
-    const direct = await fetchRateDirect();
-    if (direct && direct.rate > 100000) {
-        const rate = Math.round(direct.rate / 10) * 10;
-        localStorage.setItem('exchangeRate', rate);
-        rateLastFetchTime = Date.now();
-        localStorage.setItem('exchangeRateTime', rateLastFetchTime.toString());
-        localStorage.setItem('exchangeRateSource', direct.source);
-        localStorage.setItem('exchangeRateLastUpdate', new Date().toISOString());
-        localStorage.setItem('exchangeRateChange', (rate - prev));
-        console.log('Got direct exchange rate:', rate, 'from', direct.source);
-        return rate;
+    } else {
+        try {
+            const result = await apiRequest('/exchange-rate');
+            if (result.success && result.rate && result.rate > 100000) {
+                const rate = Math.round(result.rate / 10) * 10; // Backend returns Rial
+                localStorage.setItem('exchangeRate', rate);
+                rateLastFetchTime = Date.now();
+                localStorage.setItem('exchangeRateTime', rateLastFetchTime.toString());
+                localStorage.setItem('exchangeRateSource', result.source || '؟');
+                localStorage.setItem('exchangeRateLastUpdate', result.lastUpdate || new Date().toISOString());
+                localStorage.setItem('exchangeRateChange', (rate - prev));
+                localStorage.setItem('exchangeRateChangePercent', result.changePercent || 0);
+                return rate;
+            }
+        } catch (e) {
+            console.warn('Backend exchange rate failed:', e);
+        }
     }
     console.warn('All exchange rate sources failed, using cached/fallback');
     const cached = localStorage.getItem('exchangeRate');
@@ -589,40 +656,52 @@ API.displayExchangeRate = async function() {
     }
     try {
         let rate = null, change = 0, source = '';
-        const result = await apiRequest('/exchange-rate');
-        if (result.success && result.rate && result.rate > 100000) {
-            rate = Math.round(result.rate / 10) * 10;
-            change = result.changePercent || 0;
-            source = result.source || 'Backend';
-        } else {
+        if (!isLocalhost) {
+            // Static hosting - use direct fetch only
             const direct = await fetchRateDirect();
-            if (direct && direct.rate > 100000) {
-                rate = Math.round(direct.rate / 10) * 10;
+            if (direct && direct.rate > 10000) {
+                rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 Toman
                 source = direct.source || 'Direct API';
                 const prevRate = parseInt(localStorage.getItem('exchangeRate')) || rate;
                 change = prevRate > 0 ? ((rate - prevRate) / prevRate * 100).toFixed(1) : 0;
             }
+        } else {
+            // Localhost - try backend
+            const result = await apiRequest('/exchange-rate');
+            if (result.success && result.rate && result.rate > 100000) {
+                rate = Math.round(result.rate / 10) * 10; // Backend returns Rial
+                change = result.changePercent || 0;
+                source = result.source || 'Backend';
+            } else {
+                const direct = await fetchRateDirect();
+                if (direct && direct.rate > 10000) {
+                    rate = Math.round(direct.rate / 10) * 10;
+                    source = direct.source || 'Direct API';
+                    const prevRate = parseInt(localStorage.getItem('exchangeRate')) || rate;
+                    change = prevRate > 0 ? ((rate - prevRate) / prevRate * 100).toFixed(1) : 0;
+                }
+            }
         }
-        if (rate && rate > 100000) {
+        if (rate && rate > 10000) {
             const prevRate = parseInt(localStorage.getItem('exchangeRate')) || rate;
             rateLastFetchTime = Date.now();
             localStorage.setItem('exchangeRate', rate);
             localStorage.setItem('exchangeRateSource', source);
-            flashPricesOnChange(rate);
+            flashPricesOnChange(rate); // rate is already Toman
 
             const arrow = change > 0 ? '▲' : change < 0 ? '▼' : '◆';
             const arrowColor = change > 0 ? '#ff5252' : change < 0 ? '#00c853' : '#00c853';
             const dotColor = change > 0 ? '#ff5252' : change < 0 ? '#ffc107' : '#00c853';
             const liveDot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + dotColor + ';animation:pulse 1.5s ease-in-out infinite;margin:0 4px;vertical-align:middle;"></span>';
 
-            const rateToman = Math.round(rate / 10);
+            // rate is already Toman - display directly
             container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;direction:rtl;">' +
                 '<span style="display:flex;align-items:center;gap:4px;">' +
                 liveDot +
                 '<span style="color:var(--text-muted);font-size:0.8rem;">نرخ لحظه‌ای</span>' +
                 '</span>' +
                 '<span style="background:linear-gradient(135deg,rgba(0,200,83,0.15),rgba(0,200,83,0.05));padding:2px 16px;border-radius:20px;border:1px solid rgba(0,200,83,0.2);">' +
-                '<strong id="rateValue" style="color:var(--green-primary);font-size:1.1rem;letter-spacing:0.5px;font-family:monospace;">' + rateToman.toLocaleString() + '</strong>' +
+                '<strong id="rateValue" style="color:var(--green-primary);font-size:1.1rem;letter-spacing:0.5px;font-family:monospace;">' + rate.toLocaleString() + '</strong>' +
                 ' <span style="color:var(--text-muted);font-size:0.75rem;">تومان</span>' +
                 '</span>' +
                 '<span style="color:' + arrowColor + ';font-weight:bold;font-size:0.85rem;background:rgba(' + (change > 0 ? '255,82,82' : '0,200,83') + ',0.1);padding:1px 10px;border-radius:10px;">' + arrow + ' ' + (change > 0 ? '+' : '') + change + '%</span>' +
@@ -630,15 +709,13 @@ API.displayExchangeRate = async function() {
                 '<span style="color:#555;font-size:0.6rem;border:1px solid #333;border-radius:4px;padding:0 6px;">' + source + '</span>' +
                 '</div>';
         } else {
-            const fallbackToman = Math.round(lastDisplayedRate / 10);
-            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#888;"></span><span style="color:#888;"><i class="fa fa-exchange-alt ms-1"></i> نرخ دلار: <strong>' + fallbackToman.toLocaleString() + '</strong> تومان</span></div>';
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#888;"></span><span style="color:#888;"><i class="fa fa-exchange-alt ms-1"></i> نرخ دلار: <strong>' + lastDisplayedRate.toLocaleString() + '</strong> تومان</span></div>';
         }
     } catch(e) {
         console.error('displayExchangeRate error:', e);
         const cached = localStorage.getItem('exchangeRate');
         if (cached) {
-            const cachedToman = Math.round(parseInt(cached) / 10);
-            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#888;"></span><span style="color:#888;"><i class="fa fa-exchange-alt ms-1"></i> نرخ دلار: <strong>' + cachedToman.toLocaleString() + '</strong> تومان</span></div>';
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#888;"></span><span style="color:#888;"><i class="fa fa-exchange-alt ms-1"></i> نرخ دلار: <strong>' + parseInt(cached).toLocaleString() + '</strong> تومان</span></div>';
         }
     }
     if (liveTimerInterval) clearInterval(liveTimerInterval);
