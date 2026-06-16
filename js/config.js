@@ -3,7 +3,7 @@
 const CONFIG = {
     // Backend API URL - SET THIS AFTER RAILWAY DEPLOY
     // Example: 'https://arzankala-backend.railway.app/api'
-    API_URL: '', // Leave empty to use local data only (GitHub Pages mode)
+    API_URL: 'https://arzankala-backend.onrender.com/api',
     
     // Auto-detect environment
     isLocalhost: location.hostname === 'localhost' || location.hostname === '127.0.0.1',
