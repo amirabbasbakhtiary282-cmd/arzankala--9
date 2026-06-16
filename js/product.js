@@ -93,9 +93,6 @@ async function loadProduct(productId, retries) {
     renderProduct(product);
 }
 
-    renderProduct(product);
-}
-
 function renderProduct(product) {
     currentProduct = product;
     document.title = product.name + ' | ارزان کالا';

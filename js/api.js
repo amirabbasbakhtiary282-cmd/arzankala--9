@@ -61,41 +61,17 @@ async function apiRequest(endpoint, options = {}) {
 
 // ========== PRODUCTS ==========
 API.getProducts = async (params = {}) => {
-    // On static hosting, use local data directly
-    if (!isLocalhost) {
-        if (typeof productsDatabase !== 'undefined') {
-            let products = [...productsDatabase];
-            if (params.category) products = products.filter(p => p.category === params.category);
-            if (params.search) products = products.filter(p => p.name.includes(params.search));
-            if (params.minPrice) products = products.filter(p => p.price >= params.minPrice);
-            if (params.maxPrice) products = products.filter(p => p.price <= params.maxPrice);
-            const brandMap = {
-                'samsung': 'سامسونگ', 'apple': 'اپل', 'xiaomi': 'شیائومی', 'sony': 'سونی',
-                'lg': 'ال جی', 'asus': 'ایسوس', 'lenovo': 'لنوو', 'dell': 'دل',
-                'canon': 'کانن', 'nintendo': 'نینتندو', 'logitech': 'لاجیتک', 'jbl': 'جی‌بی‌ال'
-            };
-            if (params.brand) {
-                const brandLower = params.brand.toLowerCase();
-                const persianBrand = brandMap[brandLower] || brandLower;
-                products = products.filter(p => {
-                    const name = (p.name || '').toLowerCase();
-                    return name.includes(brandLower) || name.includes(persianBrand);
-                });
-            }
-            if (params.sort === 'price_asc') products.sort((a,b) => a.price - b.price);
-            else if (params.sort === 'price_desc') products.sort((a,b) => b.price - a.price);
-            else if (params.sort === 'rating') products.sort((a,b) => b.rating - a.rating);
-            const page = parseInt(params.page) || 1;
-            const limit = parseInt(params.limit) || 20;
-            const start = (page - 1) * limit;
-            const paginated = products.slice(start, start + limit);
-            return { success: true, data: paginated, pagination: { currentPage: page, totalPages: Math.ceil(products.length/limit), totalItems: products.length } };
+    // Try backend first if API_URL configured
+    if (API_URL) {
+        const query = new URLSearchParams(params).toString();
+        const result = await apiRequest(`/products${query ? '?' + query : ''}`);
+        if (result.success) return result;
+        if (result.skipBackend) {
+            // backend not available, fall through to local
+        } else if (!result.networkError) {
+            return result;
         }
-        return { success: false, data: [] };
     }
-    const query = new URLSearchParams(params).toString();
-    const result = await apiRequest(`/products${query ? '?' + query : ''}`);
-    if (result.success) return result;
     // Fallback to local data
     if (typeof productsDatabase !== 'undefined') {
         let products = [...productsDatabase];
@@ -129,50 +105,48 @@ API.getProducts = async (params = {}) => {
 };
 
 API.getProductById = async (id) => {
-    // On static hosting (GitHub Pages), skip backend entirely
-    if (!isLocalhost) {
-        if (typeof productsDatabase !== 'undefined') {
-            const localProduct = productsDatabase.find(p => p.id == id);
-            if (localProduct) return { product: localProduct, error: null };
+    // Try backend first if API_URL configured
+    if (API_URL) {
+        const result = await apiRequest(`/products/${id}`);
+        if (result.success) return { product: result.data, error: null };
+        // If product not found (404), return error immediately
+        if (result.error && result.error.includes('یافت نشد')) {
+            return { product: null, error: result.error };
         }
-        return { product: null, error: 'محصول یافت نشد' };
+        if (result.skipBackend) {
+            // backend not available, fall through to local
+        } else if (!result.networkError) {
+            return { product: null, error: result.error || 'خطای ناشناخته' };
+        }
     }
-    const result = await apiRequest(`/products/${id}`);
-    if (result.success) return { product: result.data, error: null };
-    // If product not found (404), don't fall back to local DB - return error
-    if (result.error && result.error.includes('یافت نشد')) {
-        return { product: null, error: result.error };
-    }
-    // For other errors, fall back to local DB
+    // Fallback to local data
     if (typeof productsDatabase !== 'undefined') {
         const localProduct = productsDatabase.find(p => p.id == id);
         if (localProduct) return { product: localProduct, error: null };
     }
-    return { product: null, error: result.error || 'خطای ناشناخته' };
+    return { product: null, error: 'محصول یافت نشد' };
 };
 
 API.getProductsByCategory = async (category) => {
-    if (!isLocalhost) {
-        if (typeof productsDatabase !== 'undefined') return productsDatabase.filter(p => p.category === category);
-        return [];
+    // Try backend first if API_URL configured
+    if (API_URL) {
+        const result = await apiRequest(`/products/category/${category}`);
+        if (result.success) return result.data;
+        if (!result.skipBackend && !result.networkError) return [];
     }
-    const result = await apiRequest(`/products/category/${category}`);
-    if (result.success) return result.data;
+    // Fallback to local data
     if (typeof productsDatabase !== 'undefined') return productsDatabase.filter(p => p.category === category);
     return [];
 };
 
 API.searchProducts = async (query) => {
-    if (!isLocalhost) {
-        if (typeof productsDatabase !== 'undefined') {
-            const filtered = productsDatabase.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
-            return { success: true, data: filtered, totalResults: filtered.length };
-        }
-        return { success: false, data: [], totalResults: 0 };
+    // Try backend first if API_URL configured
+    if (API_URL) {
+        const result = await apiRequest(`/products/search?q=${encodeURIComponent(query)}`);
+        if (result.success) return result;
+        if (!result.skipBackend && !result.networkError) return { success: false, data: [], totalResults: 0 };
     }
-    const result = await apiRequest(`/products/search?q=${encodeURIComponent(query)}`);
-    if (result.success) return result;
-    if (typeof productsDatabase !== 'undefined') {
+    // Fallback to local data
         const filtered = productsDatabase.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
         return { success: true, data: filtered, totalResults: filtered.length };
     }
@@ -180,8 +154,13 @@ API.searchProducts = async (query) => {
 };
 
 API.getSmartRecommendations = async (usage, budget, urgency, limit = 8) => {
-    if (!isLocalhost) {
-        // Local fallback algorithm
+    // Try backend first if API_URL configured
+    if (API_URL) {
+        const result = await apiRequest(`/products/recommendations?usage=${usage}&budget=${budget}&urgency=${urgency}&limit=${limit}`);
+        if (result.success) return result.data;
+        if (!result.skipBackend && !result.networkError) return [];
+    }
+    // Local fallback algorithm
         if (typeof productsDatabase !== 'undefined') {
             let products = [...productsDatabase];
             if (usage === 'gaming') products = products.filter(p => ['laptop','monitor'].includes(p.category));
@@ -226,9 +205,13 @@ API.getSmartRecommendations = async (usage, budget, urgency, limit = 8) => {
 };
 
 API.getRelatedProducts = async (productId, limit = 4) => {
-    const result = await apiRequest(`/products/${productId}/related?limit=${limit}`);
-    if (result.success) return result.data;
-    if (typeof productsDatabase !== 'undefined') {
+    // Try backend first if API_URL configured
+    if (API_URL) {
+        const result = await apiRequest(`/products/${productId}/related?limit=${limit}`);
+        if (result.success) return result.data;
+        if (!result.skipBackend && !result.networkError) return [];
+    }
+    // Fallback to local data
         const product = productsDatabase.find(p => p.id == productId);
         if (product) return productsDatabase.filter(p => p.category === product.category && p.id != productId).slice(0, limit);
     }
@@ -576,21 +559,9 @@ async function fetchRateDirect() {
 
 API.getExchangeRate = async () => {
     const prev = parseInt(localStorage.getItem('exchangeRate')) || FALLBACK_RATE;
-    // Skip backend on static hosting
-    if (!isLocalhost) {
-        const direct = await fetchRateDirect();
-        if (direct && direct.rate > 10000) {
-            const rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 Toman
-            localStorage.setItem('exchangeRate', rate);
-            rateLastFetchTime = Date.now();
-            localStorage.setItem('exchangeRateTime', rateLastFetchTime.toString());
-            localStorage.setItem('exchangeRateSource', direct.source);
-            localStorage.setItem('exchangeRateLastUpdate', new Date().toISOString());
-            localStorage.setItem('exchangeRateChange', (rate - prev));
-            console.log('Got direct exchange rate (Toman):', rate, 'from', direct.source);
-            return rate;
-        }
-    } else {
+    
+    // If API_URL is configured, try backend first (works on both localhost and GitHub Pages)
+    if (API_URL) {
         try {
             const result = await apiRequest('/exchange-rate');
             if (result.success && result.rate && result.rate > 100000) {
@@ -602,12 +573,28 @@ API.getExchangeRate = async () => {
                 localStorage.setItem('exchangeRateLastUpdate', result.lastUpdate || new Date().toISOString());
                 localStorage.setItem('exchangeRateChange', (rate - prev));
                 localStorage.setItem('exchangeRateChangePercent', result.changePercent || 0);
+                console.log('Got exchange rate from backend (Toman):', rate, 'from', result.source);
                 return rate;
             }
         } catch (e) {
             console.warn('Backend exchange rate failed:', e);
         }
     }
+    
+    // Fallback: try direct fetch from APIs (CORS may block these from browser)
+    const direct = await fetchRateDirect();
+    if (direct && direct.rate > 10000) {
+        const rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 Toman
+        localStorage.setItem('exchangeRate', rate);
+        rateLastFetchTime = Date.now();
+        localStorage.setItem('exchangeRateTime', rateLastFetchTime.toString());
+        localStorage.setItem('exchangeRateSource', direct.source);
+        localStorage.setItem('exchangeRateLastUpdate', new Date().toISOString());
+        localStorage.setItem('exchangeRateChange', (rate - prev));
+        console.log('Got direct exchange rate (Toman):', rate, 'from', direct.source);
+        return rate;
+    }
+    
     console.warn('All exchange rate sources failed, using cached/fallback');
     const cached = localStorage.getItem('exchangeRate');
     return cached ? parseInt(cached) : FALLBACK_RATE;
@@ -662,30 +649,23 @@ API.displayExchangeRate = async function() {
     }
     try {
         let rate = null, change = 0, source = '';
-        if (!isLocalhost) {
-            // Static hosting - use direct fetch only
+        // Try backend first if API_URL is configured
+        if (API_URL) {
+            const result = await apiRequest('/exchange-rate');
+            if (result.success && result.rate && result.rate > 100000) {
+                rate = Math.round(result.rate / 10) * 10; // Backend returns Rial, convert to Toman
+                change = result.changePercent || 0;
+                source = result.source || 'Backend';
+            }
+        }
+        // Fallback to direct fetch if backend unavailable
+        if (!rate) {
             const direct = await fetchRateDirect();
             if (direct && direct.rate > 10000) {
-                rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 Toman (direct.rate already Toman)
+                rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 Toman
                 source = direct.source || 'Direct API';
                 const prevRate = parseInt(localStorage.getItem('exchangeRate')) || rate;
                 change = prevRate > 0 ? ((rate - prevRate) / prevRate * 100).toFixed(1) : 0;
-            }
-        } else {
-            // Localhost - try backend (backend returns Rial)
-            const result = await apiRequest('/exchange-rate');
-            if (result.success && result.rate && result.rate > 100000) {
-                rate = Math.round(result.rate / 10) * 10; // Convert Rial to Toman
-                change = result.changePercent || 0;
-                source = result.source || 'Backend';
-            } else {
-                const direct = await fetchRateDirect();
-                if (direct && direct.rate > 10000) {
-                    rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 Toman
-                    source = direct.source || 'Direct API';
-                    const prevRate = parseInt(localStorage.getItem('exchangeRate')) || rate;
-                    change = prevRate > 0 ? ((rate - prevRate) / prevRate * 100).toFixed(1) : 0;
-                }
             }
         }
         if (rate && rate > 10000) {
