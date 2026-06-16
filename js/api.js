@@ -7,15 +7,20 @@ const API_URL = CONFIG.API_URL || (isLocalhost ? 'http://localhost:3000/api' : '
 
 console.log('[API] Environment:', isLocalhost ? 'localhost' : 'production', '| API_URL:', API_URL || 'local data mode');
 
-// Flag to track if backend is available
-let backendAvailable = isLocalhost && !!API_URL;
+// Flag to track if backend is available (starts true if API_URL configured)
+let backendAvailable = !!API_URL;
 
 // Generic fetch wrapper with error handling
 async function apiRequest(endpoint, options = {}) {
-    // If no backend configured (GitHub Pages), use local data directly
-    if (!API_URL || (!isLocalhost && !backendAvailable)) {
-        console.log(`[API] Skipping ${endpoint} - using local data directly`);
+    // If no backend configured, use local data directly
+    if (!API_URL) {
+        console.log(`[API] Skipping ${endpoint} - no backend configured`);
         return { success: false, error: 'No backend configured - using local data', networkError: true, skipBackend: true };
+    }
+    // If backend previously failed, skip and use local data
+    if (!backendAvailable) {
+        console.log(`[API] Skipping ${endpoint} - backend previously unavailable`);
+        return { success: false, error: 'Backend unavailable', networkError: true, skipBackend: true };
     }
     
     try {
