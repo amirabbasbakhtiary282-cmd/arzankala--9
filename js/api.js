@@ -7,20 +7,12 @@ const API_URL = CONFIG.API_URL || (isLocalhost ? 'http://localhost:3000/api' : '
 
 console.log('[API] Environment:', isLocalhost ? 'localhost' : 'production', '| API_URL:', API_URL || 'local data mode');
 
-// Flag to track if backend is available (starts true if API_URL configured)
-let backendAvailable = !!API_URL;
-
 // Generic fetch wrapper with error handling
 async function apiRequest(endpoint, options = {}) {
     // If no backend configured, use local data directly
     if (!API_URL) {
         console.log(`[API] Skipping ${endpoint} - no backend configured`);
         return { success: false, error: 'No backend configured - using local data', networkError: true, skipBackend: true };
-    }
-    // If backend previously failed, skip and use local data
-    if (!backendAvailable) {
-        console.log(`[API] Skipping ${endpoint} - backend previously unavailable`);
-        return { success: false, error: 'Backend unavailable', networkError: true, skipBackend: true };
     }
     
     try {
@@ -30,13 +22,14 @@ async function apiRequest(endpoint, options = {}) {
         
         const url = `${API_URL}${endpoint}`;
         console.log(`[API] Request: ${url}`);
-        const response = await fetch(url, { ...options, headers });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+        const response = await fetch(url, { ...options, headers, signal: controller.signal });
+        clearTimeout(timeout);
         console.log(`[API] Response: ${response.status} ${response.statusText}`);
         
-        // If we get HTML instead of JSON (GitHub Pages returns index.html for 404), backend is not available
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
-            backendAvailable = false;
             console.warn('[API] Backend not available (non-JSON response), switching to local data mode');
             return { success: false, error: 'Backend unavailable', networkError: true, skipBackend: true };
         }
@@ -45,16 +38,12 @@ async function apiRequest(endpoint, options = {}) {
             const errorData = await response.json().catch(() => ({ error: 'خطای سرور' }));
             const errMsg = errorData.error || `HTTP ${response.status}`;
             console.error(`[API] Error ${response.status}:`, errMsg);
-            if (response.status === 404 || response.status === 503) {
-                backendAvailable = false;
-            }
             return { success: false, error: errMsg, status: response.status, code: errorData.code };
         }
         const data = await response.json();
         return data;
     } catch (error) {
         console.error(`[API] Network Error [${endpoint}]:`, error);
-        backendAvailable = false;
         return { success: false, error: error.message, networkError: true };
     }
 }
@@ -546,7 +535,7 @@ API.getExchangeRate = async () => {
         try {
             const result = await apiRequest('/exchange-rate');
             if (result.success && result.rate && result.rate > 100000) {
-                const rate = Math.round(result.rate / 10) * 10; // Backend returns Rial
+                const rate = Math.round(result.rate / 10); // Backend returns Rial, convert to Toman
                 localStorage.setItem('exchangeRate', rate);
                 rateLastFetchTime = Date.now();
                 localStorage.setItem('exchangeRateTime', rateLastFetchTime.toString());
@@ -634,7 +623,7 @@ API.displayExchangeRate = async function() {
         if (API_URL) {
             const result = await apiRequest('/exchange-rate');
             if (result.success && result.rate && result.rate > 100000) {
-                rate = Math.round(result.rate / 10) * 10; // Backend returns Rial, convert to Toman
+                rate = Math.round(result.rate / 10); // Backend returns Rial, convert to Toman
                 change = result.changePercent || 0;
                 source = result.source || 'Backend';
             }
