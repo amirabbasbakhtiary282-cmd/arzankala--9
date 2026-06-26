@@ -554,7 +554,7 @@ API.getExchangeRate = async () => {
     // Fallback: try direct fetch from APIs (CORS may block these from browser)
     const direct = await fetchRateDirect();
     if (direct && direct.rate > 10000) {
-        const rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 Toman
+        const rate = Math.round(direct.rate); // direct.rate is already Toman from fetchRateDirect()
         localStorage.setItem('exchangeRate', rate);
         rateLastFetchTime = Date.now();
         localStorage.setItem('exchangeRateTime', rateLastFetchTime.toString());
@@ -632,7 +632,7 @@ API.displayExchangeRate = async function() {
         if (!rate) {
             const direct = await fetchRateDirect();
             if (direct && direct.rate > 10000) {
-                rate = Math.round(direct.rate / 10) * 10; // Round to nearest 10 Toman
+                rate = Math.round(direct.rate); // direct.rate is already Toman
                 source = direct.source || 'Direct API';
                 const prevRate = parseInt(localStorage.getItem('exchangeRate')) || rate;
                 change = prevRate > 0 ? ((rate - prevRate) / prevRate * 100).toFixed(1) : 0;
