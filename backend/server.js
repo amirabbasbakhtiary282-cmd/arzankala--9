@@ -8,9 +8,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-
-// CORS configuration for production
+// ============================================================
+// ✅ تنظیمات کامل CORS - حل مشکل دسترسی از GitHub Pages
+// ============================================================
 const allowedOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
@@ -18,19 +18,44 @@ const allowedOrigins = [
     'https://arzankala-9.onrender.com'
 ];
 
+// CORS اصلی
 app.use(cors({
     origin: function (origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
+        // اگر درخواست بدون origin بود (مثل ابزارهای محلی) اجازه بده
+        if (!origin) return callback(null, true);
+        
+        // اگر origin در لیست مجاز بود اجازه بده
+        if (allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
+            console.log('❌ CORS blocked for origin:', origin);
             callback(new Error('Not allowed by CORS'));
         }
     },
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// هدرهای اضافی برای اطمینان
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    // پاسخ به درخواست‌های OPTIONS (preflight)
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
+
 app.use(express.json());
 
-// Import route files
+// ============================================================
+// 📦 Import route files
+// ============================================================
 const productRoutes = require('./routes/products');
 const userRoutes = require('./routes/users');
 const commentRoutes = require('./routes/comments');
@@ -53,7 +78,9 @@ const memoryStores = {
     orders: []
 };
 
-// Try to connect to database, fallback to memory if fails
+// ============================================================
+// 🗄️ Database initialization
+// ============================================================
 async function initializeDatabase() {
     try {
         const { connectDB } = require('./config/database');
@@ -142,7 +169,9 @@ async function initializeDatabase() {
     }
 }
 
-// Start server
+// ============================================================
+// 🚀 Start server
+// ============================================================
 async function startServer() {
     try {
         await initializeDatabase();
@@ -189,6 +218,9 @@ async function startServer() {
             });
         });
 
+        // ============================================================
+        // 💰 Exchange Rate API
+        // ============================================================
         const exchangeRateService = require('./services/exchangeRateService');
 
         app.get('/api/exchange-rate', async (req, res) => {
@@ -204,7 +236,15 @@ async function startServer() {
                     changePercent: info.changePercent
                 });
             } catch (e) {
-                res.json({ success: true, rate: 750000, previousRate: 750000, source: 'fallback', lastUpdate: null, change: 0, changePercent: 0 });
+                res.json({ 
+                    success: true, 
+                    rate: 750000, 
+                    previousRate: 750000, 
+                    source: 'fallback', 
+                    lastUpdate: null, 
+                    change: 0, 
+                    changePercent: 0 
+                });
             }
         });
 
