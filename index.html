@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content="0; url=frontend/" />
+    <title>در حال انتقال به ارزان‌کالا...</title>
+
+    <!-- Font Awesome (برای آیکون‌ها) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
+    <style>
+        /* ===== تنظیمات پایه ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Vazir', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0e0c;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            direction: rtl;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ===== افکت پس‌زمینه (حالت شیشه‌ای و گرین‌گلویی) ===== */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(0, 230, 118, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(0, 230, 118, 0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(0, 230, 118, 0.04) 0%, transparent 50%);
+            z-index: -1;
+            animation: aurora 12s ease-in-out infinite alternate;
+        }
+
+        @keyframes aurora {
+            0% { opacity: 0.6; transform: scale(1); }
+            100% { opacity: 1; transform: scale(1.1); }
+        }
+
+        /* ===== ذرات سبز شناور ===== */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                radial-gradient(2px 2px at 10% 20%, rgba(0, 230, 118, 0.2), transparent),
+                radial-gradient(2px 2px at 30% 60%, rgba(0, 230, 118, 0.15), transparent),
+                radial-gradient(2px 2px at 50% 10%, rgba(0, 230, 118, 0.2), transparent),
+                radial-gradient(2px 2px at 70% 40%, rgba(0, 230, 118, 0.15), transparent),
+                radial-gradient(2px 2px at 90% 70%, rgba(0, 230, 118, 0.2), transparent);
+            background-size: 200% 200%;
+            z-index: -1;
+            pointer-events: none;
+            animation: particleFloat 20s linear infinite;
+        }
+
+        @keyframes particleFloat {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 100% 100%; }
+        }
+
+        /* ===== کارت اصلی ===== */
+        .redirect-card {
+            background: rgba(18, 26, 22, 0.7);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(0, 230, 118, 0.15);
+            border-radius: 28px;
+            padding: 48px 40px 40px;
+            max-width: 480px;
+            width: 90%;
+            text-align: center;
+            box-shadow:
+                0 20px 60px rgba(0, 0, 0, 0.6),
+                0 0 40px rgba(0, 230, 118, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            animation: cardEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            transform: translateY(30px);
+            opacity: 0;
+            position: relative;
+            z-index: 2;
+        }
+
+        @keyframes cardEntrance {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ===== لوگو یا برند ===== */
+        .brand-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(145deg, #00e676 0%, #00c853 50%, #009624 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 2.4rem;
+            color: #0a0e0c;
+            box-shadow: 0 8px 32px rgba(0, 230, 118, 0.25);
+            animation: pulseGlow 2.5s ease-in-out infinite;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% {
+                box-shadow: 0 8px 32px rgba(0, 230, 118, 0.2);
+            }
+            50% {
+                box-shadow: 0 8px 48px rgba(0, 230, 118, 0.5);
+            }
+        }
+
+        /* ===== تایتل ===== */
+        .redirect-title {
+            color: #ffffff;
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .redirect-title .highlight {
+            background: linear-gradient(145deg, #00e676, #00c853);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .redirect-sub {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.95rem;
+            margin-bottom: 28px;
+            line-height: 1.6;
+        }
+
+        /* ===== اسپینر ===== */
+        .spinner-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(0, 230, 118, 0.12);
+            border-top-color: #00e676;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .spinner-text {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+        }
+
+        /* ===== لینک دستی ===== */
+        .manual-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 28px;
+            background: linear-gradient(145deg, #00e676, #00c853);
+            color: #0a0e0c;
+            font-weight: 700;
+            font-size: 0.95rem;
+            border-radius: 50px;
+            text-decoration: none;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 4px 20px rgba(0, 230, 118, 0.2);
+        }
+
+        .manual-link:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 32px rgba(0, 230, 118, 0.35);
+            color: #0a0e0c;
+        }
+
+        .manual-link i {
+            transition: transform 0.3s ease;
+        }
+
+        .manual-link:hover i {
+            transform: translateX(-4px);
+        }
+
+        /* ===== فوتر کوچک ===== */
+        .redirect-footer {
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.2);
+            font-size: 0.7rem;
+            letter-spacing: 0.5px;
+        }
+
+        /* ===== واکنش‌گرایی ===== */
+        @media (max-width: 480px) {
+            .redirect-card {
+                padding: 32px 20px 28px;
+            }
+            .redirect-title {
+                font-size: 1.3rem;
+            }
+            .brand-icon {
+                width: 64px;
+                height: 64px;
+                font-size: 1.8rem;
+            }
+            .manual-link {
+                padding: 10px 20px;
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .redirect-card {
+                padding: 24px 16px 20px;
+                border-radius: 20px;
+            }
+            .redirect-title {
+                font-size: 1.1rem;
+            }
+            .redirect-sub {
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="redirect-card">
+        <!-- آیکون برند -->
+        <div class="brand-icon">
+            <i class="fas fa-store"></i>
+        </div>
+
+        <!-- عنوان -->
+        <h1 class="redirect-title">
+            <span class="highlight">ارزان‌کالا</span>
+        </h1>
+        <p class="redirect-sub">
+            در حال انتقال به فروشگاه...
+        </p>
+
+        <!-- اسپینر -->
+        <div class="spinner-wrapper">
+            <div class="spinner"></div>
+            <span class="spinner-text">لطفاً صبر کنید</span>
+        </div>
+
+        <!-- لینک دستی -->
+        <a href="frontend/" class="manual-link">
+            <i class="fas fa-arrow-left"></i>
+            ورود به فروشگاه
+        </a>
+
+        <div class="redirect-footer">
+            <i class="fas fa-shield-alt" style="margin-left: 4px;"></i>
+            امن و مطمئن
+        </div>
+    </div>
+
+    <!-- ریدایرکت خودکار با جاوااسکریپت (در صورت عدم پشتیبانی متا) -->
+    <script>
+        // اگر متا رفرش کار نکرد، این کار رو انجام بده
+        setTimeout(function() {
+            window.location.href = 'frontend/';
+        }, 2500);
+    </script>
+
+</body>
+</html>
