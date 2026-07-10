@@ -1,0 +1,332 @@
+﻿<!DOCTYPE html>
+<html lang="fa-ir" dir="rtl" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ارزان‌کالا | فروشگاه اینترنتی لوازم دیجیتال و الکترونیک</title>
+    <meta name="description" content="فروشگاه آنلاین ارزان‌کالا - خرید انواع موبایل، لپ‌تاپ، تبلت، لوازم جانبی و لوازم خانگی با بهترین قیمت و ارسال سریع">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./css/bootstrap.rtl.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="./css/style.css">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./img/logo.png">
+    <link rel="icon" type="image/png" href="./img/logo.png">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        html{scroll-behavior:smooth}
+        body{font-family:'Vazirmatn','Vazir',sans-serif;background:#0a0e0c;color:#fff;overflow-x:hidden;padding-top:106px;direction:rtl}
+        .navbar-row1{background:rgba(5,8,7,0.92);position: fixed;backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid rgba(0,230,118,0.12);padding:10px 0;position:fixed;top:0;left:0;right:0;z-index:1060;transition:all 0.4s ease}
+        .navbar-row1.scrolled{background:rgba(5,8,7,0.98);border-bottom-color:rgba(0,230,118,0.25);padding:6px 0;box-shadow:0 4px 30px rgba(0,0,0,0.3)}
+        .hm-hero{min-height:500px;display:flex;align-items:center;overflow:hidden;background:radial-gradient(ellipse at 30% 50%,rgba(0,230,118,0.06),transparent 60%),#0a0e0c;position:relative}
+        .hm-hero::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2300e676' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");pointer-events:none;z-index:0}
+        .hm-skeleton{background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.08) 50%,rgba(255,255,255,0.04) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:12px}
+        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        @keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+        .container{max-width:1400px;margin:0 auto;padding:0 15px}
+        .hm-show-more-btn{display:none;width:100%;padding:10px;margin-top:12px;border:1px dashed rgba(0,230,118,0.3);border-radius:10px;background:transparent;color:var(--green-primary);font-family:inherit;font-size:0.85rem;font-weight:600;cursor:pointer;transition:all 0.3s}
+        .hm-show-more-btn:hover{background:rgba(0,230,118,0.08)}
+        .hm-show-more-btn.active{border-color:var(--green-primary);background:rgba(0,230,118,0.05)}
+        .hm-scroll-wrapper{overflow:hidden}
+        .hm-scroll-track{display:flex;gap:14px;overflow-x:auto;scroll-behavior:smooth;padding-bottom:8px;scrollbar-width:thin;scrollbar-color:rgba(0,230,118,0.3) transparent}
+        .hm-scroll-track::-webkit-scrollbar{height:5px}
+        .hm-scroll-track::-webkit-scrollbar-thumb{background:rgba(0,230,118,0.3);border-radius:10px}
+        .hm-scroll-track .hm-product-card{min-width:200px;max-width:220px;flex-shrink:0}
+        @media(max-width:768px){
+            .hm-scroll-track .hm-product-card{min-width:160px;max-width:170px}
+            .hm-scroll-track{gap:10px}
+            .hm-show-more-btn{display:block}
+            .hm-scroll-wrapper{max-height:340px;overflow:hidden;transition:max-height 0.5s ease}
+            .hm-scroll-wrapper.expanded{max-height:none}
+        }
+        .hm-typing-text{color:var(--green-primary);border-left:3px solid var(--green-primary);padding-left:8px;animation:blink 1s step-end infinite;min-width:20px;display:inline-block}
+        @keyframes blink{0%,100%{border-color:var(--green-primary)}50%{border-color:transparent}}
+        @media(max-width:576px){body{padding-top:62px!important}}
+    </style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<!-- ========== HERO ========== -->
+<section class="hm-hero" id="hmHero">
+  <div class="hm-hero-particles" id="hmParticles" aria-hidden="true"></div>
+  <div class="hm-hero-gradient" id="hmHeroGradient" style="position:absolute;inset:0;background:radial-gradient(circle at 30% 40%,rgba(0,230,118,0.08),transparent 50%),radial-gradient(circle at 70% 60%,rgba(0,200,83,0.04),transparent 40%);z-index:0;transition:all 0.5s ease"></div>
+  <div class="container" style="position:relative;z-index:1">
+    <div class="row align-items-center">
+      <div class="col-lg-7">
+        <div>
+          <div class="hm-hero-badge"><span class="pulse-dot" aria-hidden="true"></span> اولین فروشگاه تخصصی لوازم دیجیتال</div>
+          <h1 class="hm-hero-title">خرید <span class="green">ارزان کالا</span><br>از نزدیک‌ترین شما</h1>
+          <p class="hm-hero-sub">تنها مکان خرید مطمئن با ضمانت اصالت کالا، ارسال سریع و پشتیبانی ۲۴ ساعته برای رضایت کامل شما</p>
+            <div style="margin:12px 0 16px;font-size:0.95rem;color:var(--text-secondary)">
+              تایپ کن... <span class="hm-typing-text" id="hmHeroTyping"></span>
+            </div>
+          <div class="hm-hero-search" style="position:relative">
+            <input type="text" id="hmHeroSearch" placeholder="جستجوی محصولات، برندها: موبایل..." autocomplete="off" aria-label="جستجوی محصولات در ارزان کالا">
+            <button class="hm-hero-search-btn" onclick="hmDoSearch('hmHeroSearch')" aria-label="جستجو"><i class="fa fa-search"></i></button>
+            <div class="hm-autocomplete-wrap" id="hmHeroAutocomplete" role="listbox"></div>
+          </div>
+          <div class="hm-hero-tags">
+            <a href="./category.html?category=mobile" class="hm-hero-tag"><i class="fa fa-mobile-alt"></i> موبایل</a>
+            <a href="./category.html?category=laptop" class="hm-hero-tag"><i class="fa fa-laptop"></i> لپ‌تاپ</a>
+            <a href="./category.html?category=accessory" class="hm-hero-tag"><i class="fa fa-headphones"></i> لوازم جانبی</a>
+            <a href="./category.html?category=gaming" class="hm-hero-tag"><i class="fa fa-gamepad"></i> گیمینگ</a>
+            <a href="./category.html?category=camera" class="hm-hero-tag"><i class="fa fa-camera"></i> دوربین</a>
+            <a href="./category.html?category=tablet" class="hm-hero-tag"><i class="fa fa-tablet-alt"></i> تبلت</a>
+          </div>
+          <div class="hm-hero-stats">
+            <div><div class="hm-hero-stat-num" id="hmStatProds">۴۵+</div><div class="hm-hero-stat-label">محصولات فعال</div></div>
+            <div><div class="hm-hero-stat-num">۱۲K+</div><div class="hm-hero-stat-label">خریداران راضی</div></div>
+            <div><div class="hm-hero-stat-num">۲۴/۷</div><div class="hm-hero-stat-label">پشتیبانی آنلاین</div></div>
+            <div><div class="hm-hero-stat-num">۱-۳ روز</div><div class="hm-hero-stat-label">تحویل سریع</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5 d-none d-lg-block">
+        <div style="position:relative;display:flex;align-items:center;justify-content:center">
+          <div class="hm-hero-slider" id="hmHeroSlider" role="region" aria-label="اسلایدر تبلیغات ارزان کالا">
+            <div class="hm-slide active" style="background:linear-gradient(135deg,#1a0a0a,#2d0a0a,#1a0505)">
+              <div class="hm-slide-bg" style="background:radial-gradient(circle at 50% 50%,rgba(255,23,68,0.15),transparent 70%)"></div>
+              <div class="hm-slide-content">
+                <div class="hm-slide-badge" style="background:rgba(255,23,68,0.2);border:1px solid rgba(255,23,68,0.3);color:#ff5252"><i class="fa fa-bolt"></i> فرصت استثنایی</div>
+                <div class="hm-slide-title" style="color:#fff">تخفیف‌های<br>شگفت‌انگیز</div>
+                <div class="hm-slide-sub" style="color:rgba(255,255,255,0.7)">تا ۷۰٪ تخفیف روی برندهای پرطرفدار</div>
+                <a href="./category.html?sort=discount" class="hm-slide-btn" style="background:linear-gradient(135deg,#ff1744,#d50000);color:#fff"><i class="fa fa-shopping-bag"></i> مشاهده تخفیف‌ها</a>
+              </div>
+            </div>
+            <div class="hm-slide" style="background:linear-gradient(135deg,#0a1a10,#0a2518,#051a10)">
+              <div class="hm-slide-bg" style="background:radial-gradient(circle at 50% 50%,rgba(0,230,118,0.12),transparent 70%)"></div>
+              <div class="hm-slide-content">
+                <div class="hm-slide-badge" style="background:rgba(0,230,118,0.15);border:1px solid rgba(0,230,118,0.25);color:#00e676"><i class="fa fa-sparkles"></i> برندها</div>
+                <div class="hm-slide-title" style="color:#fff">برندهای<br>معتبر</div>
+                <div class="hm-slide-sub" style="color:rgba(255,255,255,0.7)">محصولات اصلی از توزیع‌کنندگان رسمی</div>
+                <a href="./category.html" class="hm-slide-btn" style="background:var(--green-gradient);color:#fff"><i class="fa fa-star"></i> مشاهده برندها</a>
+              </div>
+            </div>
+            <div class="hm-slide" style="background:linear-gradient(135deg,#0a0a1a,#1a0a2d,#100520)">
+              <div class="hm-slide-bg" style="background:radial-gradient(circle at 50% 50%,rgba(64,196,255,0.12),transparent 70%)"></div>
+              <div class="hm-slide-content">
+                <div class="hm-slide-badge" style="background:rgba(64,196,255,0.15);border:1px solid rgba(64,196,255,0.25);color:#40c4ff"><i class="fa fa-gift"></i> خدمات</div>
+                <div class="hm-slide-title" style="color:#fff">خدمات<br>یکتا</div>
+                <div class="hm-slide-sub" style="color:rgba(255,255,255,0.7)">ضمانت اصالت کالا + بازگشت آسان</div>
+                <a href="./category.html" class="hm-slide-btn" style="background:linear-gradient(135deg,#40c4ff,#0288d1);color:#fff"><i class="fa fa-truck"></i> جزئیات خدمات</a>
+              </div>
+            </div>
+            <div class="hm-slide-dots" role="tablist" aria-label="ناوبری اسلایدر">
+              <button class="hm-slide-dot active" role="tab" aria-label="اسلاید ۱"></button>
+              <button class="hm-slide-dot" role="tab" aria-label="اسلاید ۲"></button>
+              <button class="hm-slide-dot" role="tab" aria-label="اسلاید ۳"></button>
+            </div>
+            <div class="hm-slide-progress" id="hmSlideProgress"></div>
+          </div>
+          <div class="hm-floating-badge top" aria-hidden="true"><i class="fa fa-truck"></i><span>ارسال رایگان</span></div>
+          <div class="hm-floating-badge bottom" aria-hidden="true"><i class="fa fa-shield-alt"></i><span>ضمانت اصالت</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== FLASH SALE ========== -->
+<section class="hm-flash-section hm-reveal" id="hmFlashSec" style="display:none">
+  <div class="container">
+    <div class="hm-section-header">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <span class="hm-flash-badge"><i class="fa fa-bolt"></i> فروش فوری</span>
+        <div class="hm-countdown" aria-label="زمان باقی‌مانده تا پایان فروش">
+          <div class="hm-countdown-box"><div class="hm-countdown-num" id="hmCdH" aria-label="ساعت">00</div><div class="hm-countdown-label">ساعت</div></div>
+          <span style="color:#ff5252;font-weight:900" aria-hidden="true">:</span>
+          <div class="hm-countdown-box"><div class="hm-countdown-num" id="hmCdM" aria-label="دقیقه">00</div><div class="hm-countdown-label">دقیقه</div></div>
+          <span style="color:#ff5252;font-weight:900" aria-hidden="true">:</span>
+          <div class="hm-countdown-box"><div class="hm-countdown-num" id="hmCdS" aria-label="ثانیه">00</div><div class="hm-countdown-label">ثانیه</div></div>
+        </div>
+      </div>
+      <a href="./category.html?sort=discount" class="hm-section-link">مشاهده همه <i class="fa fa-arrow-left"></i></a>
+    </div>
+    <div class="hm-scroll-wrapper"><div class="hm-scroll-track" id="hmFlashProds"></div></div>
+    <div class="hm-flash-progress" role="progressbar" aria-label="پیشرفت فروش فوری"><div class="hm-flash-progress-bar" id="hmFlashProgressBar"></div></div>
+  </div>
+</section>
+
+<!-- ========== CATEGORIES ========== -->
+<section class="hm-reveal">
+  <div class="container" style="padding-top:36px;padding-bottom:36px">
+    <div class="hm-section-header">
+      <div class="hm-section-title"><span class="icon-box"><i class="fa fa-th-large"></i></span> دسته‌بندی محصولات</div>
+      <a href="./category.html" class="hm-section-link">مشاهده همه <i class="fa fa-arrow-left"></i></a>
+    </div>
+    <div class="row g-3" id="hmCatGrid"></div>
+  </div>
+</section>
+
+<!-- ========== BRANDS ========== -->
+<section class="hm-brands-section hm-reveal">
+  <div class="container">
+    <div class="hm-section-header"><div class="hm-section-title"><span class="icon-box"><i class="fa fa-trophy"></i></span> برندهای پرطرفدار</div></div>
+    <div class="hm-scroll-wrapper" id="hmBrandsWrapper">
+      <div class="row g-2" id="hmBrandsGrid"></div>
+    </div>
+    <button class="hm-show-more-btn" data-target="hmBrandsWrapper">نمایش بیشتر</button>
+  </div>
+</section>
+
+<!-- ========== BEST SELLERS ========== -->
+<section class="hm-reveal" id="hmBestSellersSec">
+  <div class="container">
+    <div class="hm-section-header">
+      <div class="hm-section-title"><span class="icon-box"><i class="fa fa-fire"></i></span> پرفروش‌ترین‌ها</div>
+      <a href="./category.html" class="hm-section-link">مشاهده همه <i class="fa fa-arrow-left"></i></a>
+    </div>
+    <div class="hm-scroll-wrapper" id="hmBestSellersWrap">
+      <div class="hm-scroll-track" id="hmBestSellers">
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+      </div>
+    </div>
+    <button class="hm-show-more-btn" data-target="hmBestSellersWrap">نمایش بیشتر</button>
+  </div>
+</section>
+
+<!-- ========== NEW PRODUCTS ========== -->
+<section class="hm-reveal" id="hmNewProdsSec">
+  <div class="container">
+    <div class="hm-section-header">
+      <div class="hm-section-title"><span class="icon-box"><i class="fa fa-star"></i></span> جدیدترین محصولات</div>
+      <a href="./category.html" class="hm-section-link">مشاهده همه <i class="fa fa-arrow-left"></i></a>
+    </div>
+    <div class="hm-scroll-wrapper" id="hmNewProdsWrap">
+      <div class="hm-scroll-track" id="hmNewProds">
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+      </div>
+    </div>
+    <button class="hm-show-more-btn" data-target="hmNewProdsWrap">نمایش بیشتر</button>
+  </div>
+</section>
+
+<!-- ========== DISCOUNTED ========== -->
+<section class="hm-reveal" id="hmDiscountedSec">
+  <div class="container">
+    <div class="hm-section-header">
+      <div class="hm-section-title"><span class="icon-box"><i class="fa fa-tags"></i></span> تخفیف‌های ویژه</div>
+      <a href="./category.html?sort=discount" class="hm-section-link">مشاهده همه <i class="fa fa-arrow-left"></i></a>
+    </div>
+    <div class="hm-scroll-wrapper" id="hmDiscountedWrap">
+      <div class="hm-scroll-track" id="hmDiscountedProds">
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+      </div>
+    </div>
+    <button class="hm-show-more-btn" data-target="hmDiscountedWrap">نمایش بیشتر</button>
+  </div>
+</section>
+
+<!-- ========== RECOMMENDED ========== -->
+<section class="hm-reveal" id="hmRecommendedSec">
+  <div class="container">
+    <div class="hm-section-header">
+      <div class="hm-section-title"><span class="icon-box"><i class="fa fa-crosshairs"></i></span> پیشنهادهای ویژه برای شما</div>
+      <a href="./choose.html" class="hm-section-link">مشاهده راهنمای خرید <i class="fa fa-arrow-left"></i></a>
+    </div>
+    <div class="hm-scroll-wrapper" id="hmRecommendedWrap">
+      <div class="hm-scroll-track" id="hmRecommended">
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+        <div class="hm-skeleton" style="width:220px;height:320px;flex-shrink:0"></div>
+      </div>
+    </div>
+    <button class="hm-show-more-btn" data-target="hmRecommendedWrap">نمایش بیشتر</button>
+  </div>
+</section>
+
+<!-- ========== WHY US ========== -->
+<section class="hm-reveal">
+  <div class="container" style="padding-top:36px;padding-bottom:36px">
+    <div class="hm-section-header"><div class="hm-section-title"><span class="icon-box"><i class="fa fa-award"></i></span> چرا ارزان‌کالا؟</div></div>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div style="background:rgba(0,230,118,0.04);border:1px solid rgba(0,230,118,0.1);border-radius:16px;padding:24px;text-align:center;transition:all 0.3s">
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(0,230,118,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.5rem;color:var(--green-primary)"><i class="fa fa-tags"></i></div>
+          <h4 style="font-weight:700;font-size:1rem;margin-bottom:8px">بهترین قیمت</h4>
+          <p style="color:var(--text-muted);font-size:0.82rem;line-height:1.7">مقایسه قیمت‌ها با رقبا و ارائه ارزان‌ترین قیمت با تضمین اصالت کالا و کیفیت بالا.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div style="background:rgba(0,230,118,0.04);border:1px solid rgba(0,230,118,0.1);border-radius:16px;padding:24px;text-align:center;transition:all 0.3s">
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(0,230,118,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.5rem;color:var(--green-primary)"><i class="fa fa-truck-fast"></i></div>
+          <h4 style="font-weight:700;font-size:1rem;margin-bottom:8px">ارسال سریع</h4>
+          <p style="color:var(--text-muted);font-size:0.82rem;line-height:1.7">ارسال رایگان برای سفارش‌های بالای ۵ میلیون تومان و تحویل در ۱ تا ۳ روز کاری.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div style="background:rgba(0,230,118,0.04);border:1px solid rgba(0,230,118,0.1);border-radius:16px;padding:24px;text-align:center;transition:all 0.3s">
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(0,230,118,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.5rem;color:var(--green-primary)"><i class="fa fa-headset"></i></div>
+          <h4 style="font-weight:700;font-size:1rem;margin-bottom:8px">پشتیبانی ۲۴/۷</h4>
+          <p style="color:var(--text-muted);font-size:0.82rem;line-height:1.7">تیم پشتیبانی در تمام ساعات برای پاسخ به سوالات و حل مشکلات شما در خدمت است.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== TESTIMONIALS ========== -->
+<section class="hm-reveal">
+  <div class="container" style="padding-top:36px;padding-bottom:36px">
+    <div class="hm-section-header"><div class="hm-section-title"><span class="icon-box"><i class="fa fa-comments"></i></span> نظرات مشتریان</div></div>
+    <div class="row g-3" id="hmTestimonialsGrid"></div>
+  </div>
+</section>
+
+<!-- ========== NEWSLETTER ========== -->
+<section class="hm-reveal">
+  <div class="container" style="padding-top:36px;padding-bottom:36px">
+    <div class="hm-newsletter-box">
+      <div style="position:relative;z-index:1">
+        <h3 style="font-weight:800;font-size:1.3rem;margin-bottom:6px"><i class="fa fa-envelope" style="color:var(--green-primary)"></i> به خبرنامه ما بپیوندید!</h3>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:18px">اولین‌ها از تخفیف‌ها، و محصولات جدید با خبر شوید + ۱۰٪ تخفیف خرید اول!</p>
+        <div class="hm-newsletter-input-wrap">
+          <input type="email" id="hmNewsEmail" placeholder="ایمیل خود را وارد کنید..." aria-label="عضویت در خبرنامه ارزان کالا">
+          <button onclick="hmSubscribeNews()" aria-label="اشتراک در خبرنامه"><i class="fa fa-paper-plane ms-1"></i> اشتراک</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== USP BAR ========== -->
+<section class="hm-usp-section" aria-label="مزایای خرید از ارزان کالا">
+  <div class="container">
+    <div class="row g-2">
+      <div class="col-6 col-md-3"><div class="hm-usp-card"><div class="hm-usp-icon"><i class="fa fa-truck"></i></div><div class="hm-usp-title">ارسال رایگان</div><div class="hm-usp-desc">برای سفارش‌های ۵م+</div></div></div>
+      <div class="col-6 col-md-3"><div class="hm-usp-card"><div class="hm-usp-icon"><i class="fa fa-shield-alt"></i></div><div class="hm-usp-title">ضمانت اصالت</div><div class="hm-usp-desc">محصولات اصلی و تضمینی</div></div></div>
+      <div class="col-6 col-md-3"><div class="hm-usp-card"><div class="hm-usp-icon"><i class="fa fa-undo"></i></div><div class="hm-usp-title">۷ روز مرجوعی</div><div class="hm-usp-desc">استرداد پول آسان</div></div></div>
+      <div class="col-6 col-md-3"><div class="hm-usp-card"><div class="hm-usp-icon"><i class="fa fa-headset"></i></div><div class="hm-usp-title">پشتیبانی ۲۴/۷</div><div class="hm-usp-desc">همیشه در خدمت شما</div></div></div>
+    </div>
+  </div>
+</section>
+
+<div id="site-footer"></div>
+
+<!-- ========== SCRIPTS ========== -->
+<script src="./js/layout.js" defer></script>
+<script src="./js/api.js" defer></script>
+<script src="./js/all.min.js" defer></script>
+<script src="./js/products-data.js" defer></script>
+<script src="./js/bootstrap.bundle.js" defer></script>
+<script src="./js/shop-cart.js" defer></script>
+<script src="./js/nav.js" defer></script>
+<script src="./js/compare.js" defer></script>
+<script src="./js/home.js" defer></script>
+</body>
+</html>
+

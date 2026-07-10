@@ -1,0 +1,8 @@
+node_modules/
+.env
+AxioDB/
+*.log
+*.err
+*.txt
+!backend/package.json
+!backend/package-lock.json
