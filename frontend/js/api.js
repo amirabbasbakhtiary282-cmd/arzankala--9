@@ -1,37 +1,72 @@
-// Auto-detect API URL based on environment
+// ============================================================
+// 📡 Auto-detect API URL based on environment
+// ============================================================
 const isGitHubPages = window.location.hostname.includes('github.io');
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-// Get backend URL from environment or use defaults
-// Priority: 1. window.__API_URL__ (set by build), 2. localStorage, 3. Auto-detect
+// ============================================================
+// 🎯 Get Backend URL - با اولویت‌بندی درست و بدون ارور
+// ============================================================
 const getBackendUrl = () => {
-    if (window.__API_URL__) return window.__API_URL__;
-    const stored = localStorage.getItem('backendUrl');
-    if (stored) return stored;
-    
-    if (isGitHubPages) {
-        // Production: Use Railway backend (update this URL after Railway deploy)
-        return 'https://arzankala-production.up.railway.app/api';
+    try {
+        // اولویت ۱: اگه کاربر توی کنسول ست کرده بود (برای تست)
+        if (typeof window.__API_URL__ !== 'undefined' && window.__API_URL__) {
+            return window.__API_URL__;
+        }
+        
+        // اولویت ۲: اگه توی localStorage ذخیره شده بود (برای دیپلوی)
+        if (typeof localStorage !== 'undefined') {
+            const stored = localStorage.getItem('backendUrl');
+            if (stored) return stored;
+        }
+        
+        // اولویت ۳: تشخیص خودکار بر اساس محیط
+        if (isGitHubPages) {
+            // 📍 آدرس Railway خودت رو اینجا بذار
+            return 'https://arzankala-9-production-c705.up.railway.app/api';
+        }
+        
+        if (isLocalhost) {
+            // 📍 آدرس لوکال (برای توسعه)
+            return 'http://localhost:3000/api';
+        }
+        
+        // فال‌بک نهایی (اگه هیچکدوم نبود)
+        return `${window.location.origin}/api`;
+    } catch (error) {
+        console.warn('⚠️ Error detecting API URL, using fallback:', error);
+        return 'https://arzankala-9-production-c705.up.railway.app/api';
     }
-    if (isLocalhost) {
-        return 'http://localhost:3000/api';
-    }
-    // Fallback: assume same origin
-    return `${window.location.origin}/api`;
 };
 
+// ============================================================
+// 🌐 تنظیمات نهایی API
+// ============================================================
 const API_URL = getBackendUrl();
+console.log(`✅ API URL: ${API_URL}`);
+
+// ============================================================
+// 📦 API Object
+// ============================================================
 const API = {};
 
-// Generic fetch wrapper with error handling
+// ============================================================
+// 🔧 Generic fetch wrapper with error handling
+// ============================================================
 async function apiRequest(endpoint, options = {}) {
     try {
         const token = localStorage.getItem('token');
-        const headers = { 'Content-Type': 'application/json', ...options.headers };
+        const headers = { 
+            'Content-Type': 'application/json', 
+            ...options.headers 
+        };
         if (token) headers['Authorization'] = `Bearer ${token}`;
         
         console.log(`[API] Request: ${API_URL}${endpoint}`);
-        const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
+        const response = await fetch(`${API_URL}${endpoint}`, { 
+            ...options, 
+            headers 
+        });
         console.log(`[API] Response: ${response.status} ${response.statusText}`);
         
         if (!response.ok) {
@@ -48,7 +83,34 @@ async function apiRequest(endpoint, options = {}) {
     }
 }
 
-// ========== PRODUCTS ==========
+// ============================================================
+// 🛠️ توابع کمکی برای تغییر آدرس (برای تست)
+// ============================================================
+window.setBackendUrl = function(url) {
+    try {
+        if (url) {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('backendUrl', url);
+            }
+            window.__API_URL__ = url;
+            console.log(`✅ Backend URL updated to: ${url}`);
+            console.log('🔄 برای اعمال تغییرات، صفحه رو رفرش کن (Ctrl+F5)');
+        } else {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.removeItem('backendUrl');
+            }
+            delete window.__API_URL__;
+            console.log('✅ Backend URL reset to default');
+            console.log('🔄 برای اعمال تغییرات، صفحه رو رفرش کن (Ctrl+F5)');
+        }
+    } catch (error) {
+        console.error('❌ Error setting backend URL:', error);
+    }
+};
+
+// ============================================================
+// 📦 PRODUCTS API
+// ============================================================
 API.getProducts = async (params = {}) => {
     const query = new URLSearchParams(params).toString();
     const result = await apiRequest(`/products${query ? '?' + query : ''}`);
@@ -100,11 +162,9 @@ API.getProducts = async (params = {}) => {
 API.getProductById = async (id) => {
     const result = await apiRequest(`/products/${id}`);
     if (result.success) return { product: result.data, error: null };
-    // If product not found (404), don't fall back to local DB - return error
     if (result.error && result.error.includes('یافت نشد')) {
         return { product: null, error: result.error };
     }
-    // For other errors, fall back to local DB
     if (typeof productsDatabase !== 'undefined') {
         const localProduct = productsDatabase.find(p => p.id == id);
         if (localProduct) return { product: localProduct, error: null };
@@ -137,7 +197,6 @@ API.getSmartRecommendations = async (usage, budget, urgency, limit = 8) => {
     if (usage === 'gaming') products = products.filter(p => ['laptop','monitor'].includes(p.category));
     else if (usage === 'student') products = products.filter(p => ['laptop','tablet','mobile'].includes(p.category));
     else if (usage === 'office') products = products.filter(p => ['laptop','monitor','accessory'].includes(p.category));
-    // Score
     const scored = products.map(p => {
         let score = 0;
         score += p.stock > 10 ? 10 : p.stock > 5 ? 7 : p.stock > 0 ? 3 : -10;
@@ -163,7 +222,36 @@ API.getRelatedProducts = async (productId, limit = 4) => {
     return [];
 };
 
-// ========== COMMENTS ==========
+API.getProductPriceHistory = async (productId) => {
+    const result = await apiRequest(`/products/${productId}/price-history`);
+    if (result.success) return result.data;
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    return [
+        { date: new Date(now - 30 * dayMs).toISOString().split('T')[0], price: 0 },
+        { date: new Date(now - 20 * dayMs).toISOString().split('T')[0], price: 0 },
+        { date: new Date(now - 10 * dayMs).toISOString().split('T')[0], price: 0 },
+        { date: new Date(now - 5 * dayMs).toISOString().split('T')[0], price: 0 },
+        { date: new Date(now).toISOString().split('T')[0], price: 0 }
+    ];
+};
+
+API.getPricePrediction = async (productId) => {
+    const result = await apiRequest(`/products/${productId}/price-prediction`);
+    if (result.success) return result.data;
+    return null;
+};
+
+API.getComplementaryProducts = async (cartIds) => {
+    if (!cartIds || cartIds.length === 0) return [];
+    const result = await apiRequest(`/products/complementary?cartIds=${cartIds.join(',')}`);
+    if (result.success) return result.data;
+    return [];
+};
+
+// ============================================================
+// 💬 COMMENTS API
+// ============================================================
 API.getProductComments = async (productId, page = 1, limit = 10, sort = 'newest') => {
     const result = await apiRequest(`/comments/product/${productId}?page=${page}&limit=${limit}&sort=${sort}`);
     return result.success ? result : { data: [], summary: { total: 0, averageRating: 0, ratingDistribution: {1:0,2:0,3:0,4:0,5:0} } };
@@ -204,72 +292,9 @@ API.getAIReviewAnalysis = async (productId) => {
     return null;
 };
 
-API.getPricePrediction = async (productId) => {
-    const result = await apiRequest(`/products/${productId}/price-prediction`);
-    if (result.success) return result.data;
-    return null;
-};
-
-API.getComplementaryProducts = async (cartIds) => {
-    if (!cartIds || cartIds.length === 0) return [];
-    const result = await apiRequest(`/products/complementary?cartIds=${cartIds.join(',')}`);
-    if (result.success) return result.data;
-    return [];
-};
-
-// ========== PRICE HISTORY ==========
-API.getProductPriceHistory = async (productId) => {
-    const result = await apiRequest(`/products/${productId}/price-history`);
-    if (result.success) return result.data;
-    const now = Date.now();
-    const dayMs = 24 * 60 * 60 * 1000;
-    return [
-        { date: new Date(now - 30 * dayMs).toISOString().split('T')[0], price: 0 },
-        { date: new Date(now - 20 * dayMs).toISOString().split('T')[0], price: 0 },
-        { date: new Date(now - 10 * dayMs).toISOString().split('T')[0], price: 0 },
-        { date: new Date(now - 5 * dayMs).toISOString().split('T')[0], price: 0 },
-        { date: new Date(now).toISOString().split('T')[0], price: 0 }
-    ];
-};
-
-// ========== PREVIOUS CART RECOMMENDATIONS ==========
-API.getPreviousCartRecommendations = async () => {
-    const history = JSON.parse(localStorage.getItem('cartHistory') || '[]');
-    if (history.length === 0) return [];
-    const productIds = [...new Set(history.map(item => item.id))];
-    const result = await apiRequest(`/products?limit=${productIds.length}`);
-    if (result.success && result.data) {
-        return result.data.filter(p => productIds.includes(p.id));
-    }
-    if (typeof productsDatabase !== 'undefined') {
-        return productsDatabase.filter(p => productIds.includes(p.id));
-    }
-    return [];
-};
-
-// ========== USER DISCOUNT ==========
-API.trackProductPrice = function (productId, price) {
-    let tracked = JSON.parse(localStorage.getItem('priceTracker') || '[]');
-    let existing = tracked.find(function (t) { return t.id === productId; });
-    if (existing) {
-        if (price < existing.price) existing.price = price;
-        existing.checkedAt = Date.now();
-    } else {
-        tracked.push({ id: productId, price: price, checkedAt: Date.now() });
-        if (tracked.length > 20) tracked = tracked.slice(-20);
-    }
-    localStorage.setItem('priceTracker', JSON.stringify(tracked));
-};
-
-API.getUserDiscount = () => {
-    const purchaseCount = parseInt(localStorage.getItem('purchaseCount') || '0');
-    if (purchaseCount >= 10) return 15;
-    if (purchaseCount >= 5) return 10;
-    if (purchaseCount >= 2) return 5;
-    return 0;
-};
-
-// ========== USERS ==========
+// ============================================================
+// 👤 USERS API
+// ============================================================
 API.register = async (fullname, username, password, email = '', mobile = '', birthYear = '') => {
     const result = await apiRequest('/users/register', {
         method: 'POST',
@@ -305,7 +330,6 @@ API.getProfile = async () => {
     return result.success ? result.data : null;
 };
 
-// ========== WISHLIST ==========
 API.addToWishlist = async (productId) => {
     return await apiRequest('/users/wishlist', {
         method: 'POST',
@@ -322,7 +346,9 @@ API.getWishlist = async () => {
     return result.success ? result.data : [];
 };
 
-// ========== CART ==========
+// ============================================================
+// 🛒 CART API
+// ============================================================
 API.addToCart = function(product) {
     if (typeof window.addToCart === 'function') {
         window.addToCart(product);
@@ -376,7 +402,23 @@ API.getCart = function() {
     return JSON.parse(localStorage.getItem('cart')) || [];
 };
 
-// ========== EXCHANGE RATE ==========
+API.getPreviousCartRecommendations = async () => {
+    const history = JSON.parse(localStorage.getItem('cartHistory') || '[]');
+    if (history.length === 0) return [];
+    const productIds = [...new Set(history.map(item => item.id))];
+    const result = await apiRequest(`/products?limit=${productIds.length}`);
+    if (result.success && result.data) {
+        return result.data.filter(p => productIds.includes(p.id));
+    }
+    if (typeof productsDatabase !== 'undefined') {
+        return productsDatabase.filter(p => productIds.includes(p.id));
+    }
+    return [];
+};
+
+// ============================================================
+// 💰 EXCHANGE RATE API
+// ============================================================
 let lastDisplayedRate = parseInt(localStorage.getItem('exchangeRate')) || 750000;
 let rateLastFetchTime = 0;
 let liveTimerInterval = null;
@@ -511,7 +553,9 @@ API.startRatePolling = function() {
     }, 15000);
 };
 
-// ========== NOTIFICATION ==========
+// ============================================================
+// 🔔 NOTIFICATION
+// ============================================================
 API.showNotification = function(message, type = 'success') {
     const container = document.getElementById('notificationContainer');
     if (!container) {
@@ -527,7 +571,6 @@ API.showNotification = function(message, type = 'success') {
     setTimeout(() => { notif.style.opacity = '0'; notif.style.transition = 'opacity 0.3s'; setTimeout(() => notif.remove(), 300); }, 2500);
 };
 
-// ========== DESKTOP NOTIFICATIONS ==========
 API.sendDesktopNotification = function(title, body) {
     if (!('Notification' in window)) return;
     if (Notification.permission === 'granted') {
@@ -547,7 +590,9 @@ API.sendDesktopNotification = function(title, body) {
     }
 };
 
-// Add animation style
+// ============================================================
+// 🎨 STYLES
+// ============================================================
 const style = document.createElement('style');
 style.textContent = `
 @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -558,6 +603,9 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
+// ============================================================
+// 🚀 INITIALIZATION
+// ============================================================
 document.addEventListener('DOMContentLoaded', () => {
     API.startRatePolling();
     const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -607,7 +655,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (drops.length > 0) {
                 let msg = '📉 ' + drops.map(function (d) { return d.name + ': ' + d.dropPercent + '% تخفیف'; }).join('\n');
                 API.showNotification(msg, 'success');
-                // Update tracked prices
                 result.data.forEach(function (p) {
                     let idx = tracked.findIndex(function (t) { return t.id === p.id; });
                     if (idx !== -1) tracked[idx].price = p.price;
@@ -618,15 +665,9 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
 });
 
-// Allow dynamic backend URL update (useful after Railway deploy)
-window.setBackendUrl = function(url) {
-    if (url) {
-        localStorage.setItem('backendUrl', url);
-        window.__API_URL__ = url;
-        console.log('[API] Backend URL updated to:', url);
-    }
-};
-
+// ============================================================
+// 🛠️ EXPOSE TO GLOBAL
+// ============================================================
 window.API = API;
 window.apiRequest = apiRequest;
-console.log('✅ API.js loaded');
+console.log('✅ API.js loaded successfully!');
