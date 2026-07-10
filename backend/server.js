@@ -9,42 +9,19 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ============================================================
-// ✅ تنظیمات کامل CORS - حل مشکل دسترسی از GitHub Pages
+// ✅ تنظیمات CORS - ساده و بدون مشکل
 // ============================================================
-const allowedOrigins = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'https://amirabbasbakhtiary282-cmd.github.io',
-    'https://arzankala-9.onrender.com'
-];
-
-// CORS اصلی
 app.use(cors({
-    origin: function (origin, callback) {
-        // اگر درخواست بدون origin بود (مثل ابزارهای محلی) اجازه بده
-        if (!origin) return callback(null, true);
-        
-        // اگر origin در لیست مجاز بود اجازه بده
-        if (allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            console.log('❌ CORS blocked for origin:', origin);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true,
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// هدرهای اضافی برای اطمینان
+// middleware اضافی برای اطمینان
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    
-    // پاسخ به درخواست‌های OPTIONS (preflight)
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     if (req.method === 'OPTIONS') {
         return res.sendStatus(200);
     }
@@ -61,16 +38,16 @@ const userRoutes = require('./routes/users');
 const commentRoutes = require('./routes/comments');
 const orderRoutes = require('./routes/orders');
 
-// Import controllers for setting collections
 const productController = require('./controllers/productController');
 const userController = require('./controllers/userController');
 const commentController = require('./controllers/commentController');
 const orderController = require('./controllers/orderController');
 
-// Import error handler
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
-// In-memory fallback stores (when database unavailable)
+// ============================================================
+// 💾 In-memory fallback stores
+// ============================================================
 const memoryStores = {
     products: [],
     users: [],
@@ -87,7 +64,6 @@ async function initializeDatabase() {
         const collections = await connectDB();
         console.log('✅ دیتابیس AxioDB متصل شد');
         
-        // Set collections on controllers
         productController.setCollection(collections.productsCollection);
         userController.setCollection(collections.usersCollection);
         commentController.setCollections(collections.commentsCollection, collections.productsCollection);
@@ -97,25 +73,22 @@ async function initializeDatabase() {
     } catch (error) {
         console.warn('⚠️ دیتابیس در دسترس نیست، استفاده از حافظه موقت:', error.message);
         
-        // Load fallback data from products-data.js
         let fallbackProducts = [];
         try {
             fallbackProducts = require('../frontend/js/products-data.js');
         } catch (e) {
             fallbackProducts = [];
         }
-        
         memoryStores.products = fallbackProducts;
         
-        // Create mock collections for controllers
         const mockCollection = (storeName) => ({
             store: memoryStores[storeName],
-            async insert(doc) { 
+            async insert(doc) {
                 const newDoc = { ...doc, id: Date.now(), documentId: `mem_${Date.now()}`, createdAt: new Date().toISOString() };
                 this.store.push(newDoc);
                 return { success: true, data: newDoc };
             },
-            async find(query = {}) { 
+            async find(query = {}) {
                 let results = [...this.store];
                 if (query.category) results = results.filter(p => p.category === query.category);
                 if (query.search) {
@@ -124,13 +97,13 @@ async function initializeDatabase() {
                 }
                 return { success: true, data: { documents: results } };
             },
-            async findOne(query) { 
+            async findOne(query) {
                 const key = Object.keys(query)[0];
                 const val = query[key];
                 const found = this.store.find(p => p[key] === val);
                 return { success: true, data: found };
             },
-            async update(query, update) { 
+            async update(query, update) {
                 const key = Object.keys(query)[0];
                 const val = query[key];
                 const idx = this.store.findIndex(p => p[key] === val);
@@ -140,7 +113,7 @@ async function initializeDatabase() {
                 }
                 return { success: false, error: 'Not found' };
             },
-            async delete(query) { 
+            async delete(query) {
                 const key = Object.keys(query)[0];
                 const val = query[key];
                 const idx = this.store.findIndex(p => p[key] === val);
@@ -150,7 +123,9 @@ async function initializeDatabase() {
                 }
                 return { success: false, error: 'Not found' };
             },
-            async count() { return { success: true, count: this.store.length }; }
+            async count() {
+                return { success: true, count: this.store.length };
+            }
         });
         
         const mockCollections = {
@@ -176,22 +151,18 @@ async function startServer() {
     try {
         await initializeDatabase();
 
-        // Mount routes
         app.use('/api/products', productRoutes);
         app.use('/api/users', userRoutes);
         app.use('/api/comments', commentRoutes);
         app.use('/api/orders', orderRoutes);
 
-        // Serve frontend static files
         const frontendPath = path.join(__dirname, '..', 'frontend');
         app.use(express.static(frontendPath));
 
-        // Explicit route for root path
         app.get('/', (req, res) => {
             res.sendFile(path.join(frontendPath, 'index.html'));
         });
 
-        // SPA fallback: serve index.html for all non-API routes
         app.get('*', (req, res, next) => {
             if (req.path.startsWith('/api') || req.path === '/health') {
                 return next();
@@ -199,12 +170,10 @@ async function startServer() {
             res.sendFile(path.join(frontendPath, 'index.html'));
         });
 
-        // Health check
         app.get('/health', (req, res) => {
             res.json({ success: true, status: 'OK', timestamp: new Date().toISOString() });
         });
 
-        // Debug endpoint
         app.get('/debug/frontend-path', (req, res) => {
             const fs = require('fs');
             const fp = path.join(__dirname, '..', 'frontend');
@@ -218,9 +187,6 @@ async function startServer() {
             });
         });
 
-        // ============================================================
-        // 💰 Exchange Rate API
-        // ============================================================
         const exchangeRateService = require('./services/exchangeRateService');
 
         app.get('/api/exchange-rate', async (req, res) => {
@@ -236,19 +202,18 @@ async function startServer() {
                     changePercent: info.changePercent
                 });
             } catch (e) {
-                res.json({ 
-                    success: true, 
-                    rate: 750000, 
-                    previousRate: 750000, 
-                    source: 'fallback', 
-                    lastUpdate: null, 
-                    change: 0, 
-                    changePercent: 0 
+                res.json({
+                    success: true,
+                    rate: 750000,
+                    previousRate: 750000,
+                    source: 'fallback',
+                    lastUpdate: null,
+                    change: 0,
+                    changePercent: 0
                 });
             }
         });
 
-        // Error handling
         app.use(notFoundHandler);
         app.use(errorHandler);
 
@@ -259,8 +224,6 @@ async function startServer() {
             console.log('========================================');
             console.log(`📡 آدرس: http://localhost:${PORT}`);
             console.log(`📡 محصولات: http://localhost:${PORT}/api/products`);
-            console.log(`📡 کاربران: http://localhost:${PORT}/api/users`);
-            console.log(`📡 نظرات: http://localhost:${PORT}/api/comments`);
             console.log(`📡 سلامت: http://localhost:${PORT}/health`);
             console.log('========================================');
         });
