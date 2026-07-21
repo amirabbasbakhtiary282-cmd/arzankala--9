@@ -55,6 +55,20 @@ const memoryStores = {
     orders: []
 };
 
+// Global DB status and collections
+let dbStatus = {
+    available: false,
+    usingAxioDB: false,
+    dbType: null,
+    jsonFile: null
+};
+let globalCollections = {
+    productsCollection: null,
+    usersCollection: null,
+    commentsCollection: null,
+    ordersCollection: null
+};
+
 // ============================================================
 // 🗄️ Database initialization
 // ============================================================
@@ -68,12 +82,22 @@ async function initializeDatabase() {
         const commentsCollection = result.commentsCollection;
         const ordersCollection = result.ordersCollection;
 
-        if (result.usingAxioDB) {
+        // set global collections for /health and other uses
+        globalCollections = { productsCollection, usersCollection, commentsCollection, ordersCollection };
+
+        const usingAxio = !!result.usingAxioDB;
+        dbStatus.usingAxioDB = usingAxio;
+        dbStatus.dbType = result.dbType || (usingAxio ? 'AxioDB' : 'JSON');
+        dbStatus.jsonFile = result.jsonFile || null;
+        // consider database available if AxioDB connected or JSON fallback file exists
+        dbStatus.available = usingAxio || !!dbStatus.jsonFile;
+
+        if (usingAxio) {
             console.log('✅ اتصال به دیتابیس AxioDB برقرار شد');
             console.log(`🌐 محیط گرافیکی: http://localhost:27018`);
         } else {
             console.warn('⚠️ اتصال به AxioDB برقرار نشد — از json file fallback استفاده می‌شود');
-            if (result.jsonDbPath) console.log(`📁 مسیر دیتابیس فایل‌محور: ${result.jsonDbPath}`);
+            if (dbStatus.jsonFile) console.log(`📁 مسیر دیتابیس فایل‌محور: ${dbStatus.jsonFile}`);
         }
 
         productController.setCollection(productsCollection);
@@ -81,7 +105,7 @@ async function initializeDatabase() {
         commentController.setCollections(commentsCollection, productsCollection);
         orderController.setCollection(ordersCollection);
 
-        return { useDatabase: !!result.usingAxioDB, collections: { productsCollection, usersCollection, commentsCollection, ordersCollection } };
+        return { useDatabase: usingAxio, collections: globalCollections };
     } catch (error) {
         console.error('❌ خطا در initializeDatabase:', error.message);
         // As a last resort, fall back to basic in-memory mock (non-persistent)
@@ -129,7 +153,8 @@ async function initializeDatabase() {
                 }
                 return { success: false, error: 'Not found' };
             },
-            async count() { return { success: true, count: this.store.length }; }
+            async count() { return { success: true, count: this.store.length }; },
+            async getAll() { return this.store; }
         });
 
         const mockCollections = {
@@ -139,6 +164,10 @@ async function initializeDatabase() {
             ordersCollection: mockCollection('orders')
         };
 
+        // set global collections and dbStatus for mock
+        globalCollections = mockCollections;
+        dbStatus = { available: false, usingAxioDB: false, dbType: 'in-memory', jsonFile: null };
+
         productController.setCollection(mockCollections.productsCollection);
         userController.setCollection(mockCollections.usersCollection);
         commentController.setCollections(mockCollections.commentsCollection, mockCollections.productsCollection);
@@ -146,6 +175,34 @@ async function initializeDatabase() {
 
         return { useDatabase: false, collections: mockCollections };
     }
+}
+
+// helper to get counts from various collection wrappers
+async function getCountFromCollection(col) {
+    if (!col) return 0;
+    try {
+        if (typeof col.count === 'function') {
+            const c = await col.count();
+            if (typeof c === 'number') return c;
+            if (c && typeof c.count === 'number') return c.count;
+            // sometimes returns array
+            if (Array.isArray(c)) return c.length;
+        }
+        if (typeof col.getAll === 'function') {
+            const arr = await col.getAll();
+            if (Array.isArray(arr)) return arr.length;
+            // some wrappers return objects directly
+            if (arr && Array.isArray(arr.data)) return arr.data.length;
+        }
+        if (typeof col.find === 'function') {
+            const res = await col.find({});
+            if (Array.isArray(res)) return res.length;
+            if (res && res.data && Array.isArray(res.data.documents)) return res.data.documents.length;
+        }
+    } catch (e) {
+        console.error('error counting collection:', e.message);
+    }
+    return 0;
 }
 
 // ============================================================
@@ -174,8 +231,32 @@ async function startServer() {
             res.sendFile(path.join(frontendPath, 'index.html'));
         });
 
-        app.get('/health', (req, res) => {
-            res.json({ success: true, status: 'OK', timestamp: new Date().toISOString() });
+        app.get('/health', async (req, res) => {
+            try {
+                const productsCount = await getCountFromCollection(globalCollections.productsCollection);
+                const usersCount = await getCountFromCollection(globalCollections.usersCollection);
+                const commentsCount = await getCountFromCollection(globalCollections.commentsCollection);
+                const ordersCount = await getCountFromCollection(globalCollections.ordersCollection);
+
+                res.json({
+                    success: true,
+                    status: 'OK',
+                    timestamp: new Date().toISOString(),
+                    database: {
+                        available: dbStatus.available,
+                        dbType: dbStatus.dbType,
+                        jsonFile: dbStatus.jsonFile
+                    },
+                    counts: {
+                        products: productsCount,
+                        users: usersCount,
+                        comments: commentsCount,
+                        orders: ordersCount
+                    }
+                });
+            } catch (e) {
+                res.json({ success: false, error: e.message });
+            }
         });
 
         app.get('/debug/frontend-path', (req, res) => {
