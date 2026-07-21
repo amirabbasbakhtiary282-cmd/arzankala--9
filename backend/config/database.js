@@ -3,9 +3,13 @@ const path = require('path');
 const fs = require('fs');
 
 const DB_PATH = path.join(__dirname, '..', 'AxioDB');
+const JSON_DB_PATH = path.join(__dirname, '..', 'jsondb');
 
 if (!fs.existsSync(DB_PATH)) {
     fs.mkdirSync(DB_PATH, { recursive: true });
+}
+if (!fs.existsSync(JSON_DB_PATH)) {
+    fs.mkdirSync(JSON_DB_PATH, { recursive: true });
 }
 
 const db = new AxioDB({
@@ -99,6 +103,83 @@ function createCollectionWrapper(axiodbCollection) {
     };
 }
 
+// ---------- JSON file-backed fallback (persistent) ----------
+function jsonFileHelpers(collectionName) {
+    const filePath = path.join(JSON_DB_PATH, `${collectionName}.json`);
+
+    function readAll() {
+        try {
+            if (!fs.existsSync(filePath)) {
+                fs.writeFileSync(filePath, JSON.stringify([]), 'utf8');
+            }
+            const raw = fs.readFileSync(filePath, 'utf8');
+            return JSON.parse(raw || '[]');
+        } catch (e) {
+            console.error('json read error:', e.message);
+            return [];
+        }
+    }
+
+    function writeAll(data) {
+        try {
+            fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+            return true;
+        } catch (e) {
+            console.error('json write error:', e.message);
+            return false;
+        }
+    }
+
+    return {
+        async getAll() {
+            return readAll();
+        },
+        async find(filter) {
+            const all = readAll();
+            if (!filter || Object.keys(filter).length === 0) return all;
+            return all.filter(doc => Object.keys(filter).every(k => String(doc[k]) === String(filter[k])));
+        },
+        async getById(id) {
+            const all = readAll();
+            return all.find(d => d.id === parseInt(id) || d.id === id || d._id === id) || null;
+        },
+        async getByUsername(username) {
+            const all = readAll();
+            return all.find(d => d.username === username) || null;
+        },
+        async insert(data) {
+            const all = readAll();
+            const doc = { ...data };
+            if (!doc.id) {
+                const ids = all.map(d => parseInt(d.id)).filter(n => !isNaN(n));
+                doc.id = ids.length > 0 ? Math.max(...ids) + 1 : 1;
+            }
+            all.push(doc);
+            writeAll(all);
+            return doc;
+        },
+        async update(filter, updates) {
+            const all = readAll();
+            const key = Object.keys(filter)[0];
+            const val = filter[key];
+            const idx = all.findIndex(d => String(d[key]) === String(val));
+            if (idx === -1) return null;
+            all[idx] = { ...all[idx], ...updates, updatedAt: new Date().toISOString() };
+            writeAll(all);
+            return all[idx];
+        },
+        async delete(filter) {
+            const all = readAll();
+            const key = Object.keys(filter)[0];
+            const val = filter[key];
+            const newAll = all.filter(d => String(d[key]) !== String(val));
+            const changed = newAll.length < all.length;
+            if (changed) writeAll(newAll);
+            return changed;
+        }
+    };
+}
+
 const connectDB = async () => {
     try {
         console.log('🔄 در حال اتصال به دیتابیس AxioDB...');
@@ -124,94 +205,23 @@ const connectDB = async () => {
         // Small delay to allow GUI server to initialize
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        return { productsCollection, usersCollection, commentsCollection, ordersCollection };
+        return { productsCollection, usersCollection, commentsCollection, ordersCollection, usingAxioDB: true };
     } catch (error) {
         console.error('❌ خطا در اتصال به AxioDB:', error.message);
-        console.error('⚠️ در حال استفاده از دیتابیس JSON جایگزین...');
+        console.error('⚠️ در حال استفاده از دیتابیس JSON فایل‌محور جایگزین (persistent fallback)...');
 
-        const jsonDB = {
-            products: [],
-            users: [],
-            comments: [],
-            orders: []
-        };
-
-        const jsonProductsCollection = {
-            find: async (filter) => jsonDB.products,
-            getAll: async () => jsonDB.products,
-            getById: async (id) => jsonDB.products.find(p => p.id === parseInt(id) || p.id === id),
-            insert: async (data) => { jsonDB.products.push(data); return data; },
-            update: async (filter, updates) => {
-                const doc = jsonDB.products.find(p => p.id === filter.id || p._id === filter._id);
-                if (doc) { Object.assign(doc, updates); return doc; }
-                return null;
-            },
-            delete: async (filter) => {
-                const origLen = jsonDB.products.length;
-                jsonDB.products = jsonDB.products.filter(p => p.id !== filter.id);
-                return jsonDB.products.length < origLen;
-            }
-        };
-
-        const jsonUsersCollection = {
-            find: async (filter) => jsonDB.users,
-            getAll: async () => jsonDB.users,
-            getById: async (id) => jsonDB.users.find(u => u.id === parseInt(id) || u.id === id),
-            getByUsername: async (username) => jsonDB.users.find(u => u.username === username),
-            insert: async (data) => { jsonDB.users.push(data); return data; },
-            update: async (filter, updates) => {
-                const doc = jsonDB.users.find(u => u.id === filter.id || u._id === filter._id);
-                if (doc) { Object.assign(doc, updates); return doc; }
-                return null;
-            },
-            delete: async (filter) => {
-                const origLen = jsonDB.users.length;
-                jsonDB.users = jsonDB.users.filter(u => u.id !== filter.id);
-                return jsonDB.users.length < origLen;
-            }
-        };
-
-        const jsonCommentsCollection = {
-            find: async (filter) => jsonDB.comments,
-            getAll: async () => jsonDB.comments,
-            getById: async (id) => jsonDB.comments.find(c => c.id === parseInt(id) || c.id === id),
-            insert: async (data) => { jsonDB.comments.push(data); return data; },
-            update: async (filter, updates) => {
-                const doc = jsonDB.comments.find(c => c.id === filter.id || c._id === filter._id);
-                if (doc) { Object.assign(doc, updates); return doc; }
-                return null;
-            },
-            delete: async (filter) => {
-                const origLen = jsonDB.comments.length;
-                jsonDB.comments = jsonDB.comments.filter(c => c.id !== filter.id);
-                return jsonDB.comments.length < origLen;
-            }
-        };
-
-        const jsonOrdersCollection = {
-            find: async (filter) => jsonDB.orders,
-            getAll: async () => jsonDB.orders,
-            getById: async (id) => jsonDB.orders.find(o => o.id === parseInt(id) || o.id === id),
-            insert: async (data) => { jsonDB.orders.push(data); return data; },
-            update: async (filter, updates) => {
-                const doc = jsonDB.orders.find(o => o.id === filter.id || o._id === filter._id);
-                if (doc) { Object.assign(doc, updates); return doc; }
-                return null;
-            },
-            delete: async (filter) => {
-                const origLen = jsonDB.orders.length;
-                jsonDB.orders = jsonDB.orders.filter(o => o.id !== filter.id);
-                return jsonDB.orders.length < origLen;
-            }
-        };
-
-        console.log('⚠️ از دیتابیس JSON جایگزین استفاده می‌شود');
+        const productsCollection = jsonFileHelpers('products');
+        const usersCollection = jsonFileHelpers('users');
+        const commentsCollection = jsonFileHelpers('comments');
+        const ordersCollection = jsonFileHelpers('orders');
 
         return {
-            productsCollection: jsonProductsCollection,
-            usersCollection: jsonUsersCollection,
-            commentsCollection: jsonCommentsCollection,
-            ordersCollection: jsonOrdersCollection
+            productsCollection,
+            usersCollection,
+            commentsCollection,
+            ordersCollection,
+            usingAxioDB: false,
+            jsonDbPath: JSON_DB_PATH
         };
     }
 };
