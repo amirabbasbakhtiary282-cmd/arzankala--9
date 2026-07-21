@@ -68,13 +68,20 @@ function createCollectionWrapper(axiodbCollection) {
         async update(filter, updates) {
             try {
                 const op = axiodbCollection.update(filter || {});
-                const res = await op.UpdateOne(updates);
+                // AxioDB UpdateOne/UpdateMany may vary; try UpdateOne first
+                if (typeof op.UpdateOne === 'function') {
+                    await op.UpdateOne(updates);
+                } else if (typeof op.updateOne === 'function') {
+                    await op.updateOne(updates);
+                } else if (typeof op.exec === 'function') {
+                    await op.exec(updates);
+                }
                 // Try to return the updated document for convenience
                 const id = filter && (filter.id || filter._id);
                 if (id) {
                     return await this.getById(id);
                 }
-                return res;
+                return true;
             } catch (e) {
                 console.error('update error:', e.message);
                 throw e;
@@ -84,7 +91,16 @@ function createCollectionWrapper(axiodbCollection) {
         async delete(filter) {
             try {
                 const op = axiodbCollection.delete(filter || {});
-                const res = await op.deleteOne();
+                let res;
+                if (op) {
+                    if (typeof op.deleteOne === 'function') {
+                        res = await op.deleteOne();
+                    } else if (typeof op.DeleteOne === 'function') {
+                        res = await op.DeleteOne();
+                    } else if (typeof op.exec === 'function') {
+                        res = await op.exec();
+                    }
+                }
                 // Normalize to boolean success if possible
                 if (res && typeof res === 'object') {
                     if ('success' in res) return res.success;
@@ -94,6 +110,16 @@ function createCollectionWrapper(axiodbCollection) {
             } catch (e) {
                 console.error('delete error:', e.message);
                 throw e;
+            }
+        },
+
+        async count(filter) {
+            try {
+                const docs = await this.find(filter || {});
+                return Array.isArray(docs) ? docs.length : 0;
+            } catch (e) {
+                console.error('count error:', e.message);
+                return 0;
             }
         }
     };
@@ -156,6 +182,18 @@ function createJsonCollection(dbObj, key) {
             const changed = dbObj[key].length < origLen;
             if (changed) saveJsonDB(dbObj);
             return changed;
+        },
+        count: async (filter) => {
+            try {
+                if (!filter || Object.keys(filter).length === 0) return dbObj[key].length;
+                // basic filter: count items matching all filter keys
+                const keys = Object.keys(filter);
+                const matched = dbObj[key].filter(item => keys.every(k => String(item[k]) === String(filter[k])));
+                return matched.length;
+            } catch (e) {
+                console.error('json count error:', e.message);
+                return 0;
+            }
         }
     };
 }
@@ -170,12 +208,11 @@ const connectDB = async () => {
 
             const mainDB = await db.createDB('ArzanKalaDB');
 
-            let productsRaw, usersRaw, commentsRaw;
+            let productsRaw, usersRaw, commentsRaw, ordersRaw;
 
             try { productsRaw = await mainDB.createCollection('products'); } catch (e) { productsRaw = await mainDB.createCollection('products'); }
             try { usersRaw = await mainDB.createCollection('users'); } catch (e) { usersRaw = await mainDB.createCollection('users'); }
             try { commentsRaw = await mainDB.createCollection('comments'); } catch (e) { commentsRaw = await mainDB.createCollection('comments'); }
-            let ordersRaw;
             try { ordersRaw = await mainDB.createCollection('orders'); } catch (e) { ordersRaw = await mainDB.createCollection('orders'); }
 
             const productsCollection = createCollectionWrapper(productsRaw);
@@ -189,7 +226,7 @@ const connectDB = async () => {
             // Small delay to allow GUI server to initialize
             await new Promise(resolve => setTimeout(resolve, 500));
 
-            return { productsCollection, usersCollection, commentsCollection, ordersCollection };
+            return { productsCollection, usersCollection, commentsCollection, ordersCollection, usingAxioDB: true, dbType: 'axiodb', jsonFile: null };
         } catch (error) {
             console.error('❌ خطا در اتصال به AxioDB:', error.message);
             console.error('⚠️ در حال استفاده از دیتابیس JSON جایگزین...');
@@ -213,7 +250,10 @@ const connectDB = async () => {
         productsCollection: jsonProductsCollection,
         usersCollection: jsonUsersCollection,
         commentsCollection: jsonCommentsCollection,
-        ordersCollection: jsonOrdersCollection
+        ordersCollection: jsonOrdersCollection,
+        usingAxioDB: false,
+        dbType: 'json',
+        jsonFile: JSON_DB_FILE
     };
 };
 
