@@ -1,0 +1,136 @@
+name: Backend health check
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ master ]
+
+jobs:
+  backend-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install backend dependencies
+        # repository's backend package.json lives in ./backend
+        run: npm install --prefix backend
+
+      - name: Syntax validation for backend/config/database.js and backend/server.js
+        env:
+          NODE_OPTIONS: "--max-old-space-size=512"
+        run: |
+          echo "Parsing backend/config/database.js and backend/server.js to catch syntax errors"
+          node -e "const fs=require('fs'); new Function(fs.readFileSync('backend/config/database.js','utf8')); new Function(fs.readFileSync('backend/server.js','utf8')); console.log('PARSE_OK');"
+
+      - name: Start backend using JSON fallback
+        run: |
+          echo "Starting backend (FORCE_JSON_DB=true) from repository root (backend/server.js)"
+          # start server in background and capture PID; redirect logs to server.log
+          FORCE_JSON_DB=true node backend/server.js > server.log 2>&1 & echo $! > server.pid
+        shell: bash
+
+      - name: Wait for /health (up to 30s)
+        run: |
+          echo "Waiting for http://localhost:3000/health ..."
+          timeout=30
+          i=0
+          while [ $i -lt $timeout ]; do
+            if curl --fail --silent http://localhost:3000/health > /tmp/health.json; then
+              echo "Health endpoint responded:"
+              cat /tmp/health.json
+              break
+            fi
+            i=$((i+1))
+            sleep 1
+          done
+          if [ ! -s /tmp/health.json ]; then
+            echo "ERROR: /health did not respond within ${timeout}s. Last 200 lines of server.log:"
+            tail -n 200 server.log || true
+            cat server.log || true
+            exit 1
+          fi
+        shell: bash
+
+      - name: Validate /health JSON (expects JSON fallback)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+          echo "--- /health response ---"
+          cat /tmp/health.json
+          echo "Validating: success==true, database.dbType==\"json\", database.available==true"
+          jq -e '.success == true and (.database != null) and (.database.dbType == "json") and (.database.available == true)' /tmp/health.json
+        shell: bash
+
+      - name: Create a unique test user via API (to test persistence)
+        run: |
+          uname="ci_test_user_$(date +%s)"
+          echo "Creating test user: $uname"
+          curl -s -X POST http://localhost:3000/api/users/register \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"${uname}\",\"password\":\"testpass\"}" \
+            -o /tmp/register_response.json || true
+          echo "Register response:"
+          cat /tmp/register_response.json
+          # expose username for next step
+          echo "${uname}" > /tmp/ci_test_username.txt
+        shell: bash
+
+      - name: Ensure backend/AxioDB/fallback-db.json exists and contains the test user
+        run: |
+          uname=$(cat /tmp/ci_test_username.txt)
+          echo "Checking backend/AxioDB directory"
+          ls -la backend/AxioDB || true
+          if [ ! -f backend/AxioDB/fallback-db.json ]; then
+            echo "ERROR: backend/AxioDB/fallback-db.json not found"
+            echo "Dumping server.log for diagnosis:"
+            tail -n 200 server.log || true
+            exit 1
+          fi
+          echo "Showing fallback-db.json (first 2000 chars)"
+          head -c 2000 backend/AxioDB/fallback-db.json || true
+          echo
+          echo "Searching for created username in fallback-db.json"
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+          if jq -e --arg u "$uname" '.users and (.users[]?.username == $u) | any' backend/AxioDB/fallback-db.json >/dev/null 2>&1; then
+            echo "Found user $uname in fallback-db.json"
+            jq -r --arg u "$uname" '.users[] | select(.username==$u)' backend/AxioDB/fallback-db.json || true
+          else
+            echo "ERROR: user $uname not found in fallback-db.json"
+            echo "Dumping server.log for diagnosis:"
+            tail -n 200 server.log || true
+            exit 1
+          fi
+        shell: bash
+
+      - name: Stop backend
+        run: |
+          if [ -f server.pid ]; then
+            pid=$(cat server.pid)
+            echo "Stopping backend pid $pid"
+            kill "$pid" || true
+            sleep 1
+            if ps -p "$pid" > /dev/null 2>&1; then
+              echo "Process still running, forcing kill"
+              kill -9 "$pid" || true
+            fi
+          else
+            echo "server.pid not found; attempting to kill by port (3000)"
+            pkill -f "node backend/server.js" || true
+          fi
+        shell: bash
+
+      - name: Upload server.log artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-server-log
+          path: server.log
