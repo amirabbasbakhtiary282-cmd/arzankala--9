@@ -75,64 +75,71 @@ async function initializeDatabase() {
         
         let fallbackProducts = [];
         try {
-            fallbackProducts = require('../frontend/js/products-data.js');
+            // frontend/js/products-data.js now exports the array
+            const pd = require('../frontend/js/products-data.js');
+            if (Array.isArray(pd)) fallbackProducts = pd;
+            else if (Array.isArray(pd.productsDatabase)) fallbackProducts = pd.productsDatabase;
         } catch (e) {
             fallbackProducts = [];
         }
         memoryStores.products = fallbackProducts;
-        
-        const mockCollection = (storeName) => ({
-            store: memoryStores[storeName],
-            async insert(doc) {
-                const newDoc = { ...doc, id: Date.now(), documentId: `mem_${Date.now()}`, createdAt: new Date().toISOString() };
-                this.store.push(newDoc);
-                return { success: true, data: newDoc };
+
+        // Create mock collections that match the same interface used by controllers
+        const makeMockCollection = (storeName) => ({
+            async getAll() {
+                return memoryStores[storeName];
             },
-            async find(query = {}) {
-                let results = [...this.store];
-                if (query.category) results = results.filter(p => p.category === query.category);
-                if (query.search) {
-                    const term = query.search.toLowerCase();
-                    results = results.filter(p => p.name.toLowerCase().includes(term));
-                }
-                return { success: true, data: { documents: results } };
+            async find(filter) {
+                // provide a simple compatibility layer (returns array)
+                if (!filter || Object.keys(filter).length === 0) return memoryStores[storeName];
+                return memoryStores[storeName].filter(doc => {
+                    return Object.keys(filter).every(k => String(doc[k]) === String(filter[k]));
+                });
             },
-            async findOne(query) {
-                const key = Object.keys(query)[0];
-                const val = query[key];
-                const found = this.store.find(p => p[key] === val);
-                return { success: true, data: found };
+            async getById(id) {
+                const list = memoryStores[storeName];
+                return list.find(d => d.id === parseInt(id) || d.id === id || d._id === id) || null;
             },
-            async update(query, update) {
-                const key = Object.keys(query)[0];
-                const val = query[key];
-                const idx = this.store.findIndex(p => p[key] === val);
+            async getByUsername(username) {
+                const list = memoryStores[storeName];
+                return list.find(d => d.username === username) || null;
+            },
+            async insert(data) {
+                const list = memoryStores[storeName];
+                const newDoc = { ...data };
+                if (!newDoc.id) newDoc.id = Date.now();
+                list.push(newDoc);
+                return newDoc;
+            },
+            async update(filter, updates) {
+                const list = memoryStores[storeName];
+                const key = Object.keys(filter)[0];
+                const val = filter[key];
+                const idx = list.findIndex(p => String(p[key]) === String(val));
                 if (idx >= 0) {
-                    this.store[idx] = { ...this.store[idx], ...update, updatedAt: new Date().toISOString() };
-                    return { success: true, data: this.store[idx] };
+                    list[idx] = { ...list[idx], ...updates, updatedAt: new Date().toISOString() };
+                    return list[idx];
                 }
-                return { success: false, error: 'Not found' };
+                return null;
             },
-            async delete(query) {
-                const key = Object.keys(query)[0];
-                const val = query[key];
-                const idx = this.store.findIndex(p => p[key] === val);
-                if (idx >= 0) {
-                    this.store.splice(idx, 1);
-                    return { success: true };
-                }
-                return { success: false, error: 'Not found' };
+            async delete(filter) {
+                const list = memoryStores[storeName];
+                const key = Object.keys(filter)[0];
+                const val = filter[key];
+                const origLen = list.length;
+                memoryStores[storeName] = list.filter(p => String(p[key]) !== String(val));
+                return { success: memoryStores[storeName].length < origLen };
             },
             async count() {
-                return { success: true, count: this.store.length };
+                return memoryStores[storeName].length;
             }
         });
         
         const mockCollections = {
-            productsCollection: mockCollection('products'),
-            usersCollection: mockCollection('users'),
-            commentsCollection: mockCollection('comments'),
-            ordersCollection: mockCollection('orders')
+            productsCollection: makeMockCollection('products'),
+            usersCollection: makeMockCollection('users'),
+            commentsCollection: makeMockCollection('comments'),
+            ordersCollection: makeMockCollection('orders')
         };
         
         productController.setCollection(mockCollections.productsCollection);
