@@ -1,5 +1,6 @@
 const Product = require('../models/Product');
 const exchangeRateService = require('../services/exchangeRateService');
+const { convertUsdToToman } = require('../utils/currency');
 
 let productsCollection = null;
 
@@ -8,26 +9,26 @@ const setCollection = (collection) => {
     console.log('productController: محصولات تنظیم شد');
 };
 
+function applyExchangeRateToItem(p, rate) {
+    if (!p || !rate) return p;
+    const cloned = { ...p };
+    if (cloned.priceUSD) cloned.price = convertUsdToToman(cloned.priceUSD, rate);
+    if (cloned.oldPriceUSD) cloned.oldPrice = convertUsdToToman(cloned.oldPriceUSD, rate);
+    return cloned;
+}
+
 function applyExchangeRate(products) {
     const rate = exchangeRateService.getCurrentRate();
     if (!rate) return products;
-    const items = Array.isArray(products) ? products : [products];
-    for (const p of items) {
-        if (p.priceUSD) {
-            p.price = Math.round(p.priceUSD * rate / 10);
-        }
-        if (p.oldPriceUSD) {
-            p.oldPrice = Math.round(p.oldPriceUSD * rate / 10);
-        }
-    }
-    return products;
+    if (Array.isArray(products)) return products.map(p => applyExchangeRateToItem(p, rate));
+    return applyExchangeRateToItem(products, rate);
 }
 
 const getAllProducts = async (req, res) => {
     try {
         const { category, minPrice, maxPrice, search, sort, page = 1, limit = 20, ids, brand } = req.query;
         let products = await productsCollection.getAll();
-        applyExchangeRate(products);
+        products = applyExchangeRate(products);
 
         if (ids) {
             const idList = ids.split(',').map(Number).filter(n => !isNaN(n));
@@ -73,7 +74,7 @@ const getAllProducts = async (req, res) => {
 
         if (search) {
             const query = search.toLowerCase();
-            products = products.filter(p => p.name.toLowerCase().includes(query));
+            products = products.filter(p => (p.name || '').toLowerCase().includes(query));
         }
 
         if (sort === 'price_asc') {
@@ -107,15 +108,18 @@ const getAllProducts = async (req, res) => {
 const getProductById = async (req, res) => {
     try {
         const { id } = req.params;
-        const products = await productsCollection.getAll();
-        applyExchangeRate(products);
-        const product = products.find(p => p.id === parseInt(id));
-
+        // fetch single item from collection for accuracy
+        let product = await productsCollection.getById(parseInt(id));
         if (!product) {
             return res.status(404).json({ success: false, error: 'محصول یافت نشد' });
         }
 
-        await productsCollection.update({ id: parseInt(id) }, { viewCount: (product.viewCount || 0) + 1 });
+        // increase view count and get updated doc
+        const newViewCount = (product.viewCount || 0) + 1;
+        await productsCollection.update({ id: parseInt(id) }, { viewCount: newViewCount });
+        product = await productsCollection.getById(parseInt(id));
+
+        product = applyExchangeRate(product);
 
         res.json({ success: true, data: product });
     } catch (error) {
@@ -128,7 +132,7 @@ const getFeaturedProducts = async (req, res) => {
     try {
         const { limit = 8 } = req.query;
         let products = await productsCollection.getAll();
-        applyExchangeRate(products);
+        products = applyExchangeRate(products);
 
         const featured = products
             .sort((a, b) => {
@@ -151,7 +155,7 @@ const getNewProducts = async (req, res) => {
     try {
         const { limit = 8 } = req.query;
         let products = await productsCollection.getAll();
-        applyExchangeRate(products);
+        products = applyExchangeRate(products);
 
         const newProducts = products
             .sort((a, b) => b.id - a.id)
@@ -168,7 +172,7 @@ const getBestSellers = async (req, res) => {
     try {
         const { limit = 8 } = req.query;
         let products = await productsCollection.getAll();
-        applyExchangeRate(products);
+        products = applyExchangeRate(products);
 
         const bestSellers = products
             .sort((a, b) => (b.purchaseCount || 0) - (a.purchaseCount || 0))
@@ -185,7 +189,7 @@ const getDiscountedProducts = async (req, res) => {
     try {
         const { limit = 8 } = req.query;
         let products = await productsCollection.getAll();
-        applyExchangeRate(products);
+        products = applyExchangeRate(products);
 
         const discounted = products
             .filter(p => p.oldPrice && p.oldPrice > p.price)
@@ -207,7 +211,7 @@ const getProductsByCategory = async (req, res) => {
     try {
         const { category } = req.params;
         let products = await productsCollection.getAll();
-        applyExchangeRate(products);
+        products = applyExchangeRate(products);
 
         const filtered = products.filter(p => p.category === category);
 
@@ -222,7 +226,7 @@ const searchProducts = async (req, res) => {
     try {
         const q = req.query.q || req.query.search;
         let products = await productsCollection.getAll();
-        applyExchangeRate(products);
+        products = applyExchangeRate(products);
 
         if (!q) {
             return res.json({ success: true, data: [], totalResults: 0 });
@@ -242,7 +246,7 @@ const getSmartRecommendations = async (req, res) => {
     try {
         const { usage, budget, urgency, limit = 8 } = req.query;
         let products = await productsCollection.getAll();
-        applyExchangeRate(products);
+        products = applyExchangeRate(products);
 
         if (usage === 'gaming') {
             products = products.filter(p => p.category === 'laptop' || p.category === 'monitor');
@@ -288,7 +292,7 @@ const getRelatedProducts = async (req, res) => {
         const { limit = 4 } = req.query;
 
         let products = await productsCollection.getAll();
-        applyExchangeRate(products);
+        products = applyExchangeRate(products);
         const product = products.find(p => p.id === parseInt(id));
 
         if (!product) {
@@ -311,8 +315,7 @@ const decreaseStock = async (req, res) => {
         const { id } = req.params;
         const { quantity = 1 } = req.body;
 
-        let products = await productsCollection.getAll();
-        const product = products.find(p => p.id === parseInt(id));
+        let product = await productsCollection.getById(parseInt(id));
 
         if (!product) {
             return res.status(404).json({ success: false, error: 'محصول یافت نشد' });
@@ -322,12 +325,12 @@ const decreaseStock = async (req, res) => {
             return res.status(400).json({ success: false, error: 'موجودی کافی نیست' });
         }
 
-        await productsCollection.update(
+        const updated = await productsCollection.update(
             { id: parseInt(id) },
             { stock: product.stock - quantity, purchaseCount: (product.purchaseCount || 0) + quantity }
         );
 
-        res.json({ success: true, message: 'موجودی به‌روز شد' });
+        res.json({ success: true, message: 'موجودی به‌روز شد', data: updated });
     } catch (error) {
         console.error('خطا در decreaseStock:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -343,10 +346,10 @@ const createProduct = async (req, res) => {
         const rate = exchangeRateService.getCurrentRate();
         const body = { ...req.body };
         if (body.priceUSD) {
-            body.price = Math.round(parseFloat(body.priceUSD) * rate / 10) * 10;
+            body.price = convertUsdToToman(body.priceUSD, rate);
         }
         if (body.oldPriceUSD) {
-            body.oldPrice = Math.round(parseFloat(body.oldPriceUSD) * rate / 10) * 10;
+            body.oldPrice = convertUsdToToman(body.oldPriceUSD, rate);
         }
 
         const newProduct = {
@@ -357,8 +360,10 @@ const createProduct = async (req, res) => {
             createdAt: new Date().toISOString()
         };
 
-        await productsCollection.insert(newProduct);
-        res.status(201).json({ success: true, data: newProduct });
+        const inserted = await productsCollection.insert(newProduct);
+        const returned = await productsCollection.getById(inserted.id || newId);
+        const response = applyExchangeRate(returned);
+        res.status(201).json({ success: true, data: response });
     } catch (error) {
         console.error('خطا در createProduct:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -372,26 +377,23 @@ const updateProduct = async (req, res) => {
 
         const rate = exchangeRateService.getCurrentRate();
         if (updates.priceUSD) {
-            updates.price = Math.round(parseFloat(updates.priceUSD) * rate / 10) * 10;
+            updates.price = convertUsdToToman(updates.priceUSD, rate);
         }
         if (updates.oldPriceUSD) {
-            updates.oldPrice = Math.round(parseFloat(updates.oldPriceUSD) * rate / 10) * 10;
+            updates.oldPrice = convertUsdToToman(updates.oldPriceUSD, rate);
         }
 
-        let products = await productsCollection.getAll();
-        const product = products.find(p => p.id === parseInt(id));
+        let product = await productsCollection.getById(parseInt(id));
 
         if (!product) {
             return res.status(404).json({ success: false, error: 'محصول یافت نشد' });
         }
 
-        await productsCollection.update({ id: parseInt(id) }, updates);
+        const updated = await productsCollection.update({ id: parseInt(id) }, updates);
 
-        products = await productsCollection.getAll();
-        applyExchangeRate(products);
-        const updated = products.find(p => p.id === parseInt(id));
+        const response = applyExchangeRate(updated);
 
-        res.json({ success: true, data: updated });
+        res.json({ success: true, data: response });
     } catch (error) {
         console.error('خطا در updateProduct:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -402,15 +404,13 @@ const deleteProduct = async (req, res) => {
     try {
         const { id } = req.params;
 
-        let products = await productsCollection.getAll();
-        const product = products.find(p => p.id === parseInt(id));
-
+        let product = await productsCollection.getById(parseInt(id));
         if (!product) {
             return res.status(404).json({ success: false, error: 'محصول یافت نشد' });
         }
 
-        await productsCollection.delete({ id: parseInt(id) });
-        res.json({ success: true, message: 'محصول حذف شد' });
+        const deleted = await productsCollection.delete({ id: parseInt(id) });
+        res.json({ success: true, message: 'محصول حذف شد', data: deleted });
     } catch (error) {
         console.error('خطا در deleteProduct:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -420,7 +420,7 @@ const deleteProduct = async (req, res) => {
 const getProductsStats = async (req, res) => {
     try {
         let products = await productsCollection.getAll();
-        applyExchangeRate(products);
+        products = applyExchangeRate(products);
 
         const totalProducts = products.length;
         const totalStock = products.reduce((sum, p) => sum + (p.stock || 0), 0);
@@ -451,12 +451,9 @@ const getProductsStats = async (req, res) => {
 const getPriceHistory = async (req, res) => {
     try {
         const { id } = req.params;
-        const products = await productsCollection.getAll();
-        applyExchangeRate(products);
-        const product = products.find(p => p.id === parseInt(id));
-        if (!product) {
-            return res.status(404).json({ success: false, error: 'محصول یافت نشد' });
-        }
+        let product = await productsCollection.getById(parseInt(id));
+        if (!product) return res.status(404).json({ success: false, error: 'محصول یافت نشد' });
+        product = applyExchangeRate(product);
         const now = Date.now();
         const dayMs = 24 * 60 * 60 * 1000;
         const history = [
@@ -476,12 +473,9 @@ const getPriceHistory = async (req, res) => {
 const getPricePrediction = async (req, res) => {
     try {
         const { id } = req.params;
-        const products = await productsCollection.getAll();
-        applyExchangeRate(products);
-        const product = products.find(p => p.id === parseInt(id));
-        if (!product) {
-            return res.status(404).json({ success: false, error: 'محصول یافت نشد' });
-        }
+        let product = await productsCollection.getById(parseInt(id));
+        if (!product) return res.status(404).json({ success: false, error: 'محصول یافت نشد' });
+        product = applyExchangeRate(product);
         const now = Date.now();
         const dayMs = 24 * 60 * 60 * 1000;
         const basePrice = product.price;
@@ -503,86 +497,6 @@ const getPricePrediction = async (req, res) => {
         else if (!priceRise && !priceDrop) advice = 'قیمت نسبتاً پایدار است';
         res.json({ success: true, data: { productId: parseInt(id), currentPrice: basePrice, prediction, advice, trendDirection: trend > 0 ? 'up' : 'down' } });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-};
-
-// ========== محصولات مکمل ==========
-const getComplementaryProducts = async (req, res) => {
-    try {
-        const { cartIds } = req.query;
-        if (!cartIds) {
-            return res.status(400).json({ success: false, error: 'شناسه محصولات سبد خرید الزامی است' });
-        }
-        const ids = cartIds.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-        const products = await productsCollection.getAll();
-        applyExchangeRate(products);
-        const cartProducts = products.filter(p => ids.includes(p.id));
-        const cartCategories = [...new Set(cartProducts.map(p => p.category))];
-        const complementaryMap = {
-            mobile: ['accessory', 'tablet'],
-            laptop: ['accessory', 'monitor'],
-            tablet: ['accessory'],
-            accessory: ['mobile', 'laptop'],
-            camera: ['accessory'],
-            monitor: ['accessory'],
-            gaming: ['monitor', 'accessory'],
-            home: ['accessory'],
-            tv: ['accessory']
-        };
-        let targetCategories = [];
-        cartCategories.forEach(cat => {
-            if (complementaryMap[cat]) {
-                complementaryMap[cat].forEach(t => {
-                    if (!targetCategories.includes(t)) targetCategories.push(t);
-                });
-            }
-        });
-        let complementary = products.filter(p =>
-            !ids.includes(p.id) &&
-            targetCategories.includes(p.category) &&
-            p.stock > 0
-        );
-        complementary.sort((a, b) => {
-            const aCatMatch = targetCategories.indexOf(a.category);
-            const bCatMatch = targetCategories.indexOf(b.category);
-            if (aCatMatch !== bCatMatch) return aCatMatch - bCatMatch;
-            return (b.rating || 0) - (a.rating || 0);
-        });
-        res.json({ success: true, data: complementary.slice(0, 6), cartCategories });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-};
-
-// ========== رهگیری بازدید زنده ==========
-const activeViewers = new Map();
-
-const trackLiveView = (req, res) => {
-    try {
-        const { productId } = req.body;
-        if (!productId) {
-            return res.status(400).json({ success: false, error: 'شناسه محصول الزامی است' });
-        }
-
-        const now = Date.now();
-        const viewerId = req.user?.id || req.ip || 'anonymous';
-
-        if (!activeViewers.has(productId)) {
-            activeViewers.set(productId, new Map());
-        }
-
-        const viewers = activeViewers.get(productId);
-        viewers.set(viewerId, now + 30000);
-
-        // Clean expired viewers
-        for (const [id, expiry] of viewers) {
-            if (now > expiry) viewers.delete(id);
-        }
-
-        res.json({ success: true, data: { liveViewers: viewers.size } });
-    } catch (error) {
-        console.error('خطا در trackLiveView:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 };
