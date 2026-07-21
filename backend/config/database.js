@@ -3,13 +3,9 @@ const path = require('path');
 const fs = require('fs');
 
 const DB_PATH = path.join(__dirname, '..', 'AxioDB');
-const JSON_DB_PATH = path.join(__dirname, '..', 'jsondb');
 
 if (!fs.existsSync(DB_PATH)) {
     fs.mkdirSync(DB_PATH, { recursive: true });
-}
-if (!fs.existsSync(JSON_DB_PATH)) {
-    fs.mkdirSync(JSON_DB_PATH, { recursive: true });
 }
 
 const db = new AxioDB({
@@ -103,127 +99,122 @@ function createCollectionWrapper(axiodbCollection) {
     };
 }
 
-// ---------- JSON file-backed fallback (persistent) ----------
-function jsonFileHelpers(collectionName) {
-    const filePath = path.join(JSON_DB_PATH, `${collectionName}.json`);
-
-    function readAll() {
-        try {
-            if (!fs.existsSync(filePath)) {
-                fs.writeFileSync(filePath, JSON.stringify([]), 'utf8');
-            }
-            const raw = fs.readFileSync(filePath, 'utf8');
-            return JSON.parse(raw || '[]');
-        } catch (e) {
-            console.error('json read error:', e.message);
-            return [];
+// Persistent JSON fallback utilities
+const JSON_DB_FILE = path.join(DB_PATH, 'fallback-db.json');
+function loadJsonDB() {
+    try {
+        if (fs.existsSync(JSON_DB_FILE)) {
+            const raw = fs.readFileSync(JSON_DB_FILE, 'utf8');
+            return JSON.parse(raw);
         }
+    } catch (e) {
+        console.error('loadJsonDB error:', e.message);
     }
+    return { products: [], users: [], comments: [], orders: [] };
+}
 
-    function writeAll(data) {
-        try {
-            fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
-            return true;
-        } catch (e) {
-            console.error('json write error:', e.message);
-            return false;
-        }
+function saveJsonDB(dbObj) {
+    try {
+        fs.writeFileSync(JSON_DB_FILE + '.tmp', JSON.stringify(dbObj, null, 2), 'utf8');
+        fs.renameSync(JSON_DB_FILE + '.tmp', JSON_DB_FILE);
+    } catch (e) {
+        console.error('saveJsonDB error:', e.message);
     }
+}
 
+function createJsonCollection(dbObj, key) {
     return {
-        async getAll() {
-            return readAll();
+        find: async (filter) => {
+            return dbObj[key];
         },
-        async find(filter) {
-            const all = readAll();
-            if (!filter || Object.keys(filter).length === 0) return all;
-            return all.filter(doc => Object.keys(filter).every(k => String(doc[k]) === String(filter[k])));
+        getAll: async () => dbObj[key],
+        getById: async (id) => dbObj[key].find(d => d.id === parseInt(id) || d.id === id) || null,
+        getByUsername: async (username) => dbObj[key].find(d => d.username === username) || null,
+        insert: async (data) => {
+            const item = { ...data };
+            if (!Object.prototype.hasOwnProperty.call(item, 'id')) item.id = Date.now();
+            dbObj[key].push(item);
+            saveJsonDB(dbObj);
+            return item;
         },
-        async getById(id) {
-            const all = readAll();
-            return all.find(d => d.id === parseInt(id) || d.id === id || d._id === id) || null;
-        },
-        async getByUsername(username) {
-            const all = readAll();
-            return all.find(d => d.username === username) || null;
-        },
-        async insert(data) {
-            const all = readAll();
-            const doc = { ...data };
-            if (!doc.id) {
-                const ids = all.map(d => parseInt(d.id)).filter(n => !isNaN(n));
-                doc.id = ids.length > 0 ? Math.max(...ids) + 1 : 1;
+        update: async (filter, updates) => {
+            const keyName = Object.keys(filter)[0];
+            const val = filter[keyName];
+            const idx = dbObj[key].findIndex(d => String(d[keyName]) === String(val));
+            if (idx >= 0) {
+                dbObj[key][idx] = { ...dbObj[key][idx], ...updates, updatedAt: new Date().toISOString() };
+                saveJsonDB(dbObj);
+                return dbObj[key][idx];
             }
-            all.push(doc);
-            writeAll(all);
-            return doc;
+            return null;
         },
-        async update(filter, updates) {
-            const all = readAll();
-            const key = Object.keys(filter)[0];
-            const val = filter[key];
-            const idx = all.findIndex(d => String(d[key]) === String(val));
-            if (idx === -1) return null;
-            all[idx] = { ...all[idx], ...updates, updatedAt: new Date().toISOString() };
-            writeAll(all);
-            return all[idx];
-        },
-        async delete(filter) {
-            const all = readAll();
-            const key = Object.keys(filter)[0];
-            const val = filter[key];
-            const newAll = all.filter(d => String(d[key]) !== String(val));
-            const changed = newAll.length < all.length;
-            if (changed) writeAll(newAll);
+        delete: async (filter) => {
+            const keyName = Object.keys(filter)[0];
+            const val = filter[keyName];
+            const origLen = dbObj[key].length;
+            dbObj[key] = dbObj[key].filter(d => String(d[keyName]) !== String(val));
+            const changed = dbObj[key].length < origLen;
+            if (changed) saveJsonDB(dbObj);
             return changed;
         }
     };
 }
 
 const connectDB = async () => {
-    try {
-        console.log('🔄 در حال اتصال به دیتابیس AxioDB...');
+    // Allow forcing JSON fallback via env var
+    const forceJson = process.env.FORCE_JSON_DB === 'true' || process.env.USE_JSON_DB === 'true';
 
-        const mainDB = await db.createDB('ArzanKalaDB');
+    if (!forceJson) {
+        try {
+            console.log('🔄 در حال اتصال به دیتابیس AxioDB...');
 
-        let productsRaw, usersRaw, commentsRaw;
+            const mainDB = await db.createDB('ArzanKalaDB');
 
-        try { productsRaw = await mainDB.createCollection('products'); } catch (e) { productsRaw = await mainDB.createCollection('products'); }
-        try { usersRaw = await mainDB.createCollection('users'); } catch (e) { usersRaw = await mainDB.createCollection('users'); }
-        try { commentsRaw = await mainDB.createCollection('comments'); } catch (e) { commentsRaw = await mainDB.createCollection('comments'); }
-        let ordersRaw;
-        try { ordersRaw = await mainDB.createCollection('orders'); } catch (e) { ordersRaw = await mainDB.createCollection('orders'); }
+            let productsRaw, usersRaw, commentsRaw;
 
-        const productsCollection = createCollectionWrapper(productsRaw);
-        const usersCollection = createCollectionWrapper(usersRaw);
-        const commentsCollection = createCollectionWrapper(commentsRaw);
-        const ordersCollection = createCollectionWrapper(ordersRaw);
+            try { productsRaw = await mainDB.createCollection('products'); } catch (e) { productsRaw = await mainDB.createCollection('products'); }
+            try { usersRaw = await mainDB.createCollection('users'); } catch (e) { usersRaw = await mainDB.createCollection('users'); }
+            try { commentsRaw = await mainDB.createCollection('comments'); } catch (e) { commentsRaw = await mainDB.createCollection('comments'); }
+            let ordersRaw;
+            try { ordersRaw = await mainDB.createCollection('orders'); } catch (e) { ordersRaw = await mainDB.createCollection('orders'); }
 
-        console.log('✅ اتصال به دیتابیس AxioDB برقرار شد');
-        console.log(`🌐 محیط گرافیکی: http://localhost:27018`);
+            const productsCollection = createCollectionWrapper(productsRaw);
+            const usersCollection = createCollectionWrapper(usersRaw);
+            const commentsCollection = createCollectionWrapper(commentsRaw);
+            const ordersCollection = createCollectionWrapper(ordersRaw);
 
-        // Small delay to allow GUI server to initialize
-        await new Promise(resolve => setTimeout(resolve, 500));
+            console.log('✅ اتصال به دیتابیس AxioDB برقرار شد');
+            console.log(`🌐 محیط گرافیکی: http://localhost:27018`);
 
-        return { productsCollection, usersCollection, commentsCollection, ordersCollection, usingAxioDB: true };
-    } catch (error) {
-        console.error('❌ خطا در اتصال به AxioDB:', error.message);
-        console.error('⚠️ در حال استفاده از دیتابیس JSON فایل‌محور جایگزین (persistent fallback)...');
+            // Small delay to allow GUI server to initialize
+            await new Promise(resolve => setTimeout(resolve, 500));
 
-        const productsCollection = jsonFileHelpers('products');
-        const usersCollection = jsonFileHelpers('users');
-        const commentsCollection = jsonFileHelpers('comments');
-        const ordersCollection = jsonFileHelpers('orders');
-
-        return {
-            productsCollection,
-            usersCollection,
-            commentsCollection,
-            ordersCollection,
-            usingAxioDB: false,
-            jsonDbPath: JSON_DB_PATH
-        };
+            return { productsCollection, usersCollection, commentsCollection, ordersCollection };
+        } catch (error) {
+            console.error('❌ خطا در اتصال به AxioDB:', error.message);
+            console.error('⚠️ در حال استفاده از دیتابیس JSON جایگزین...');
+            // fall through to JSON fallback
+        }
+    } else {
+        console.warn('⚠️ FORCE_JSON_DB enabled - using JSON fallback instead of AxioDB');
     }
+
+    // Persistent JSON fallback
+    const jsonDB = loadJsonDB();
+
+    const jsonProductsCollection = createJsonCollection(jsonDB, 'products');
+    const jsonUsersCollection = createJsonCollection(jsonDB, 'users');
+    const jsonCommentsCollection = createJsonCollection(jsonDB, 'comments');
+    const jsonOrdersCollection = createJsonCollection(jsonDB, 'orders');
+
+    console.log('⚠️ از دیتابیس JSON جایگزین استفاده می‌شود (فایل ذخیره‌سازی: ' + JSON_DB_FILE + ')');
+
+    return {
+        productsCollection: jsonProductsCollection,
+        usersCollection: jsonUsersCollection,
+        commentsCollection: jsonCommentsCollection,
+        ordersCollection: jsonOrdersCollection
+    };
 };
 
 module.exports = { connectDB, db };
