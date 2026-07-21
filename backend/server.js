@@ -46,7 +46,7 @@ const orderController = require('./controllers/orderController');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
 // ============================================================
-// 💾 In-memory fallback stores
+// 💾 In-memory fallback stores (kept for compatibility but prefer jsondb fallback)
 // ============================================================
 const memoryStores = {
     products: [],
@@ -61,92 +61,89 @@ const memoryStores = {
 async function initializeDatabase() {
     try {
         const { connectDB } = require('./config/database');
-        const collections = await connectDB();
-        console.log('✅ دیتابیس AxioDB متصل شد');
-        
-        productController.setCollection(collections.productsCollection);
-        userController.setCollection(collections.usersCollection);
-        commentController.setCollections(collections.commentsCollection, collections.productsCollection);
-        orderController.setCollection(collections.ordersCollection);
-        
-        return { useDatabase: true, collections };
-    } catch (error) {
-        console.warn('⚠️ دیتابیس در دسترس نیست، استفاده از حافظه موقت:', error.message);
-        
-        let fallbackProducts = [];
-        try {
-            // frontend/js/products-data.js now exports the array
-            const pd = require('../frontend/js/products-data.js');
-            if (Array.isArray(pd)) fallbackProducts = pd;
-            else if (Array.isArray(pd.productsDatabase)) fallbackProducts = pd.productsDatabase;
-        } catch (e) {
-            fallbackProducts = [];
-        }
-        memoryStores.products = fallbackProducts;
+        const result = await connectDB();
 
-        // Create mock collections that match the same interface used by controllers
-        const makeMockCollection = (storeName) => ({
-            async getAll() {
-                return memoryStores[storeName];
+        const productsCollection = result.productsCollection;
+        const usersCollection = result.usersCollection;
+        const commentsCollection = result.commentsCollection;
+        const ordersCollection = result.ordersCollection;
+
+        if (result.usingAxioDB) {
+            console.log('✅ اتصال به دیتابیس AxioDB برقرار شد');
+            console.log(`🌐 محیط گرافیکی: http://localhost:27018`);
+        } else {
+            console.warn('⚠️ اتصال به AxioDB برقرار نشد — از json file fallback استفاده می‌شود');
+            if (result.jsonDbPath) console.log(`📁 مسیر دیتابیس فایل‌محور: ${result.jsonDbPath}`);
+        }
+
+        productController.setCollection(productsCollection);
+        userController.setCollection(usersCollection);
+        commentController.setCollections(commentsCollection, productsCollection);
+        orderController.setCollection(ordersCollection);
+
+        return { useDatabase: !!result.usingAxioDB, collections: { productsCollection, usersCollection, commentsCollection, ordersCollection } };
+    } catch (error) {
+        console.error('❌ خطا در initializeDatabase:', error.message);
+        // As a last resort, fall back to basic in-memory mock (non-persistent)
+        console.warn('��️ ورود به حالت حافظهٔ موقت (in-memory mock)');
+
+        const mockCollection = (storeName) => ({
+            store: memoryStores[storeName],
+            async insert(doc) {
+                const newDoc = { ...doc, id: Date.now(), documentId: `mem_${Date.now()}`, createdAt: new Date().toISOString() };
+                this.store.push(newDoc);
+                return { success: true, data: newDoc };
             },
-            async find(filter) {
-                // provide a simple compatibility layer (returns array)
-                if (!filter || Object.keys(filter).length === 0) return memoryStores[storeName];
-                return memoryStores[storeName].filter(doc => {
-                    return Object.keys(filter).every(k => String(doc[k]) === String(filter[k]));
-                });
-            },
-            async getById(id) {
-                const list = memoryStores[storeName];
-                return list.find(d => d.id === parseInt(id) || d.id === id || d._id === id) || null;
-            },
-            async getByUsername(username) {
-                const list = memoryStores[storeName];
-                return list.find(d => d.username === username) || null;
-            },
-            async insert(data) {
-                const list = memoryStores[storeName];
-                const newDoc = { ...data };
-                if (!newDoc.id) newDoc.id = Date.now();
-                list.push(newDoc);
-                return newDoc;
-            },
-            async update(filter, updates) {
-                const list = memoryStores[storeName];
-                const key = Object.keys(filter)[0];
-                const val = filter[key];
-                const idx = list.findIndex(p => String(p[key]) === String(val));
-                if (idx >= 0) {
-                    list[idx] = { ...list[idx], ...updates, updatedAt: new Date().toISOString() };
-                    return list[idx];
+            async find(query = {}) {
+                let results = [...this.store];
+                if (query.category) results = results.filter(p => p.category === query.category);
+                if (query.search) {
+                    const term = query.search.toLowerCase();
+                    results = results.filter(p => p.name.toLowerCase().includes(term));
                 }
-                return null;
+                return { success: true, data: { documents: results } };
             },
-            async delete(filter) {
-                const list = memoryStores[storeName];
-                const key = Object.keys(filter)[0];
-                const val = filter[key];
-                const origLen = list.length;
-                memoryStores[storeName] = list.filter(p => String(p[key]) !== String(val));
-                return { success: memoryStores[storeName].length < origLen };
+            async findOne(query) {
+                const key = Object.keys(query)[0];
+                const val = query[key];
+                const found = this.store.find(p => p[key] === val);
+                return { success: true, data: found };
             },
-            async count() {
-                return memoryStores[storeName].length;
-            }
+            async update(query, update) {
+                const key = Object.keys(query)[0];
+                const val = query[key];
+                const idx = this.store.findIndex(p => p[key] === val);
+                if (idx >= 0) {
+                    this.store[idx] = { ...this.store[idx], ...update, updatedAt: new Date().toISOString() };
+                    return { success: true, data: this.store[idx] };
+                }
+                return { success: false, error: 'Not found' };
+            },
+            async delete(query) {
+                const key = Object.keys(query)[0];
+                const val = query[key];
+                const idx = this.store.findIndex(p => p[key] === val);
+                if (idx >= 0) {
+                    this.store.splice(idx, 1);
+                    return { success: true };
+                }
+                return { success: false, error: 'Not found' };
+            },
+            async count() { return { success: true, count: this.store.length }; }
         });
-        
+
         const mockCollections = {
-            productsCollection: makeMockCollection('products'),
-            usersCollection: makeMockCollection('users'),
-            commentsCollection: makeMockCollection('comments'),
-            ordersCollection: makeMockCollection('orders')
+            productsCollection: mockCollection('products'),
+            usersCollection: mockCollection('users'),
+            commentsCollection: mockCollection('comments'),
+            ordersCollection: mockCollection('orders')
         };
-        
+
         productController.setCollection(mockCollections.productsCollection);
         userController.setCollection(mockCollections.usersCollection);
         commentController.setCollections(mockCollections.commentsCollection, mockCollections.productsCollection);
         orderController.setCollection(mockCollections.ordersCollection);
-        
+
         return { useDatabase: false, collections: mockCollections };
     }
 }
