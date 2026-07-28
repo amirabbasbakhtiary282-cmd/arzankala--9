@@ -626,5 +626,373 @@
       "رنگ": "مشکی استیل",
       "قطعات": "قابل شستشو در ماشین ظرفشویی"
     }
+  },
+  {
+    "id": 26,
+    "name": "گوشی سامسونگ Galaxy S24 Ultra",
+    "category": "mobile",
+    "price": 228240000,
+    "oldPrice": 273888000,
+    "image": "s24ultra.jpg",
+    "stock": 7,
+    "rating": 4,
+    "description": "پرچمدار سامسونگ با هوش مصنوعی Galaxy AI و دوربین 200 مگاپیکسل",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "صفحه نمایش": "6.8 اینچ Dynamic AMOLED 2X 120Hz",
+      "رم": "12 گیگابایت",
+      "حافظه داخلی": "512 گیگابایت",
+      "دوربین": "200 مگاپیکسل + قلم S-Pen"
+    }
+  },
+  {
+    "id": 27,
+    "name": "گوشی اپل iPhone 15 Pro Max",
+    "category": "mobile",
+    "price": 266280000,
+    "oldPrice": 319536000,
+    "image": "iphone15promax.jpg",
+    "stock": 5,
+    "rating": 5,
+    "description": "قوی‌ترین آیفون با تراشه A17 Pro و تیتانیوم",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "صفحه نمایش": "6.7 اینچ Super Retina XDR 120Hz",
+      "رم": "8 گیگابایت",
+      "حافظه داخلی": "256 گیگابایت",
+      "دوربین": "48 مگاپیکسل سه‌گانه"
+    }
+  },
+  {
+    "id": 28,
+    "name": "گوشی Nothing Phone (2)",
+    "category": "mobile",
+    "price": 123630000,
+    "oldPrice": 148356000,
+    "image": "nothingphone2.jpg",
+    "stock": 12,
+    "rating": 5,
+    "description": "گوشی با طراحی Glyph LED منحصربه‌فرد و تجربه خالص اندروید",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "صفحه نمایش": "6.7 اینچ LTPO OLED 120Hz",
+      "رم": "12 گیگابایت",
+      "حافظه داخلی": "256 گیگابایت",
+      "Glyph LED": "دارد"
+    }
+  },
+  {
+    "id": 29,
+    "name": "هدفون سونی WH-1000XM5",
+    "category": "accessory",
+    "price": 62766000,
+    "oldPrice": 75319200,
+    "image": "sonyxm5.jpg",
+    "stock": 14,
+    "rating": 5,
+    "description": "هدفون حرفه‌ای نویز کنسلینگ با کیفیت صدای بینظیر",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "نوع": "روی گوشی",
+      "نویز کنسلینگ": "فعال + Adaptive",
+      "باتری": "40 ساعت"
+    }
+  },
+  {
+    "id": 30,
+    "name": "هدفون اپل AirPods Max",
+    "category": "accessory",
+    "price": 104610000,
+    "oldPrice": 125532000,
+    "image": "airpodsmax.jpg",
+    "stock": 6,
+    "rating": 4,
+    "description": "هدفون پرچمدار اپل با طراحی لوکس و کیفیت صدای استثنایی",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "نوع": "روی گوشی",
+      "تراشه": "Apple H1",
+      "باتری": "20 ساعت"
+    }
+  },
+  {
+    "id": 31,
+    "name": "لپ تاپ ایسوس ROG Zephyrus G14",
+    "category": "laptop",
+    "price": 285300000,
+    "oldPrice": 342360000,
+    "image": "rogzephyrusg14.jpg",
+    "stock": 4,
+    "rating": 5,
+    "description": "لپ تاپ گیمینگ فوق‌العاده قدرتمند با پردازنده Ryzen 9 و RTX 4070",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "پردازنده": "AMD Ryzen 9 7940HS",
+      "رم": "32 گیگابایت",
+      "کارت گرافیک": "NVIDIA RTX 4070",
+      "صفحه نمایش": "14 اینچ QHD 165Hz"
+    }
+  },
+  {
+    "id": 32,
+    "name": "لپ تاپ اپل MacBook Pro 14 M3 Pro",
+    "category": "laptop",
+    "price": 418440000,
+    "oldPrice": 502128000,
+    "image": "macbookpro14m3.jpg",
+    "stock": 3,
+    "rating": 5,
+    "description": "لپ تاپ حرفه‌ای با تراشه M3 Pro و نمایشگر Liquid Retina XDR",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "پردازنده": "Apple M3 Pro",
+      "رم": "18 گیگابایت",
+      "حافظه داخلی": "512 گیگابایت SSD",
+      "صفحه نمایش": "14.2 اینچ Liquid Retina XDR"
+    }
+  },
+  {
+    "id": 33,
+    "name": "لپ تاپ Dell XPS 15",
+    "category": "laptop",
+    "price": 285300000,
+    "oldPrice": 342360000,
+    "image": "dellxps15.jpg",
+    "stock": 6,
+    "rating": 4,
+    "description": "لپ تاپ فوق‌باریک با نمایشگر InfinityEdge OLED 4K",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "پردازنده": "Intel Core i7-13700H",
+      "رم": "16 گیگابایت",
+      "حافظه داخلی": "512 گیگابایت SSD",
+      "صفحه نمایش": "15.6 اینچ OLED 4K"
+    }
+  },
+  {
+    "id": 34,
+    "name": "ساعت هوشمند سامسونگ Galaxy Watch 6 Classic",
+    "category": "accessory",
+    "price": 66570000,
+    "oldPrice": 79884000,
+    "image": "galaxywatch6classic.jpg",
+    "stock": 15,
+    "rating": 5,
+    "description": "ساعت هوشمند با صفحه چرخان و نمایشگر Super AMOLED",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "صفحه نمایش": "1.47 اینچ Super AMOLED",
+      "باتری": "425 میلی‌آمپر",
+      "سیستم عامل": "Wear OS"
+    }
+  },
+  {
+    "id": 35,
+    "name": "کنسول بازی پلی استیشن 5 Slim",
+    "category": "gaming",
+    "price": 95100000,
+    "oldPrice": 114120000,
+    "image": "ps5slim.jpg",
+    "stock": 8,
+    "rating": 0,
+    "description": "کنسول بازی نسل نهم با SSD فوق‌سریع و کنترلر DualSense",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "حافظه داخلی": "1TB SSD",
+      "رزولوشن": "تا 4K 120Hz",
+      "کنترلر": "DualSense بی‌سیم"
+    }
+  },
+  {
+    "id": 36,
+    "name": "کنسول بازی نینتندو سوییچ OLED",
+    "category": "gaming",
+    "price": 66570000,
+    "oldPrice": 79884000,
+    "image": "switcholed.jpg",
+    "stock": 11,
+    "rating": 5,
+    "description": "کنسول بازی قابل حمل با نمایشگر OLED 7 اینچی",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "صفحه نمایش": "7 اینچ OLED",
+      "حافظه داخلی": "64 گیگابایت",
+      "باتری": "4.5 تا 9 ساعت"
+    }
+  },
+  {
+    "id": 37,
+    "name": "جاروبرقی دایسون V15 Detect",
+    "category": "home",
+    "price": 142650000,
+    "oldPrice": 171180000,
+    "image": "dysonv15.jpg",
+    "stock": 5,
+    "rating": 5,
+    "description": "جاروبرقی بی‌سیم با سنسور لیزری و نمایشگر LCD",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "نوع": "بی‌سیم",
+      "توان": "660 وات",
+      "مدت کار": "60 دقیقه",
+      "فناوری": "Laser Slim Fluffy"
+    }
+  },
+  {
+    "id": 38,
+    "name": "هدفون سامسونگ Galaxy Buds2 Pro",
+    "category": "accessory",
+    "price": 32334000,
+    "oldPrice": 38800800,
+    "image": "buds2pro.jpg",
+    "stock": 20,
+    "rating": 5,
+    "description": "هدفون بی‌سیم با نویز کنسلینگ و صدای 24bit Hi-Fi",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "نوع": "درون گوشی",
+      "نویز کنسلینگ": "فعال",
+      "باتری": "29 ساعت"
+    }
+  },
+  {
+    "id": 39,
+    "name": "تبلت اپل iPad Air M2",
+    "category": "tablet",
+    "price": 114120000,
+    "oldPrice": 136944000,
+    "image": "ipadairM2.jpg",
+    "stock": 10,
+    "rating": 5,
+    "description": "تبلت قدرتمند با تراشه M2 و طراحی فوق‌باریک",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "صفحه نمایش": "11 اینچ Liquid Retina",
+      "تراشه": "Apple M2",
+      "حافظه داخلی": "256 گیگابایت"
+    }
+  },
+  {
+    "id": 40,
+    "name": "دوربین گوپرو Hero 12 Black",
+    "category": "camera",
+    "price": 76080000,
+    "oldPrice": 91296000,
+    "image": "gopro12.jpg",
+    "stock": 8,
+    "rating": 5,
+    "description": "دوربین اکشن حرفه‌ای با فیلمبرداری 5.3K و تثبیت‌کننده HyperSmooth 6.0",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "رزولوشن": "5.3K تا 60fps",
+      "تثبیت‌کننده": "HyperSmooth 6.0",
+      "ضد آب": "تا 10 متر"
+    }
+  },
+  {
+    "id": 41,
+    "name": "تلویزیون ال جی C3 OLED 65 اینچ",
+    "category": "tv",
+    "price": 342360000,
+    "oldPrice": 410832000,
+    "image": "lgc3oled.jpg",
+    "stock": 3,
+    "rating": 0,
+    "description": "تلویزیون OLED با پردازنده α9 Gen6 و پشتیبانی از Dolby Vision",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "صفحه نمایش": "65 اینچ OLED evo",
+      "رزولوشن": "4K 120Hz",
+      "پردازنده": "α9 Gen6 AI"
+    }
+  },
+  {
+    "id": 42,
+    "name": "موس گیمینگ لاجیتک G Pro X Superlight 2",
+    "category": "gaming",
+    "price": 30432000,
+    "oldPrice": 36518400,
+    "image": "gproxsuperlight2.jpg",
+    "stock": 18,
+    "rating": 5,
+    "description": "موس حرفه‌ای گیمینگ با وزن 60 گرم و سنسور Hero 2",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "نوع": "بی‌سیم",
+      "سنسور": "Hero 2",
+      "وزن": "60 گرم",
+      "باتری": "95 ساعت"
+    }
+  },
+  {
+    "id": 43,
+    "name": "مانیتور سامسونگ Odyssey G7 32 اینچ",
+    "category": "monitor",
+    "price": 133140000,
+    "oldPrice": 159768000,
+    "image": "odysseyg7.jpg",
+    "stock": 6,
+    "rating": 5,
+    "description": "مانیتور گیمینگ 4K با نرخ تازه‌سازی 144Hz و Mini LED",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "صفحه نمایش": "32 اینچ VA Mini LED",
+      "رزولوشن": "4K UHD",
+      "نرخ تازه‌سازی": "144Hz"
+    }
+  },
+  {
+    "id": 44,
+    "name": "هدفون سونی WF-1000XM5",
+    "category": "accessory",
+    "price": 53256000,
+    "oldPrice": 63907200,
+    "image": "sonywf1000xm5.jpg",
+    "stock": 13,
+    "rating": 5,
+    "description": "هدفون بی‌سیم حرفه‌ای با نویز کنسلینگ پیشرفته",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "نوع": "درون گوشی",
+      "نویز کنسلینگ": "فعال + Adaptive",
+      "باتری": "24 ساعت"
+    }
+  },
+  {
+    "id": 45,
+    "name": "کیبورد مکانیکی کی‌کرون Q1 Pro",
+    "category": "gaming",
+    "price": 38040000,
+    "oldPrice": 45648000,
+    "image": "keychronq1pro.jpg",
+    "stock": 16,
+    "rating": 5,
+    "description": "کیبورد مکانیکی 75% با بدنه آلومینیومی و اتصال بی‌سیم",
+    "viewCount": 0,
+    "purchaseCount": 0,
+    "specs": {
+      "نوع": "75% مکانیکی",
+      "اتصال": "بی‌سیم + USB-C",
+      "سوئیچ": "Gateron Jupiter"
+    }
   }
 ]

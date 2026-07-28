@@ -15,7 +15,7 @@ arzankala--9/
 │   ├── middleware/   احراز هویت (JWT) و مدیریت خطا
 │   ├── services/     نرخ ارز و تحلیل نظرات
 │   ├── scripts/      ابزار تست اتصال دیتابیس
-│   ├── products.json داده اولیه ۲۵ محصول
+│   ├── products.json داده اولیه ۴۵ محصول
 │   └── seed.js       پر کردن دیتابیس
 └── frontend/         صفحات سایت (فارسی/RTL) + PWA
 ```
@@ -46,7 +46,7 @@ cd backend
 npm install
 cp .env.example .env      # سپس مقادیر داخل .env را پر کنید
 npm run test:db           # تست اتصال به دیتابیس
-npm run seed              # وارد کردن ۲۵ محصول و کاربر مدیر
+npm run seed              # وارد کردن ۴۵ محصول و کاربر مدیر
 npm run dev               # اجرا با nodemon
 ```
 
@@ -128,7 +128,7 @@ npm run dev               # اجرا با nodemon
 **Create Web Service** را بزنید. در اولین اجرا:
 
 - جدول‌ها ساخته می‌شوند
-- ۲۵ محصول، کاربر مدیر و نظرات نمونه وارد دیتابیس می‌شوند
+- ۴۵ محصول، کاربر مدیر و نظرات نمونه وارد دیتابیس می‌شوند
 - در لاگ‌ها می‌بینید: `🎉 داده‌گذاری اولیه کامل شد`
 
 سلامت سرویس را بررسی کنید:
@@ -143,7 +143,7 @@ https://YOUR-APP.onrender.com/health
 {
   "success": true,
   "database": { "available": true, "dbType": "mysql" },
-  "counts": { "products": 25, "users": 1, "comments": 8, "orders": 0 }
+  "counts": { "products": 45, "users": 1, "comments": 8, "orders": 0 }
 }
 ```
 
