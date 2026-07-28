@@ -9,7 +9,9 @@ const commentController = require('../controllers/commentController');
 const auth = require('../middleware/auth');
 
 // ========== مسیر سیــد ==========
-router.post('/seed', commentController.seedComments);
+// ⚠️ این مسیر می‌تواند نظرات موجود را پاک/بازنویسی کند (force=true)
+// بنابراین فقط مدیر سیستم با توکن معتبر اجازه اجرای آن را دارد.
+router.post('/seed', auth.protect, auth.adminOnly, commentController.seedComments);
 
 // ========== مسیرهای عمومی ==========
 router.get('/product/:productId/ai-analysis', commentController.getAIReviewAnalysis);
