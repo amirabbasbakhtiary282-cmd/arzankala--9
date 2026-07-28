@@ -9,13 +9,6 @@ const setCollections = (comments, products) => {
     console.log('commentController: نظرات و محصولات تنظیم شد');
 };
 
-const getNextCommentId = async () => {
-    const comments = await commentsCollection.getAll();
-    const ids = comments.map(c => parseInt(c.id)).filter(id => !isNaN(id));
-    const maxId = ids.length > 0 ? Math.max(...ids) : 0;
-    return maxId + 1;
-};
-
 const recalculateProductRating = async (productId) => {
     try {
         const comments = await commentsCollection.getAll();
@@ -101,18 +94,17 @@ const addComment = async (req, res) => {
             return res.status(400).json({ success: false, error: 'متن نظر باید حداقل ۵ کاراکتر باشد' });
         }
 
-        const products = await productsCollection.getAll();
-        const product = products.find(p => p.id === parseInt(productId));
+        const product = await productsCollection.getById(parseInt(productId));
         if (!product) {
             return res.status(404).json({ success: false, error: 'محصول یافت نشد' });
         }
 
-        const newId = await getNextCommentId();
+        const now = new Date().toISOString();
 
-        const newComment = {
-            id: newId,
+        // درج امن در برابر درخواست‌های همزمان
+        const newComment = await commentsCollection.insertWithNextId({
             productId: parseInt(productId),
-            userId: userId,
+            userId: String(userId),
             username: username,
             rating: parseInt(rating),
             title: title || '',
@@ -126,11 +118,9 @@ const addComment = async (req, res) => {
             unhelpfulCount: 0,
             helpfulUsers: [],
             reply: { content: '', repliedBy: null, repliedAt: null },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-
-        await commentsCollection.insert(newComment);
+            createdAt: now,
+            updatedAt: now
+        });
 
         // Recalculate product rating (non-blocking)
         recalculateProductRating(parseInt(productId));
@@ -849,18 +839,12 @@ const seedComments = async (req, res) => {
             }
             
             for (const c of comments) {
-                const allComments = await commentsCollection.getAll();
-                const ids = allComments.map(c => parseInt(c.id)).filter(id => !isNaN(id));
-                const maxId = ids.length > 0 ? Math.max(...ids) : 0;
-                const newId = maxId + 1;
-
                 const daysAgo = Math.floor(Math.random() * 90);
                 const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
-                
+
                 const comment = {
-                    id: newId,
                     productId: pid,
-                    userId: 'seed_user_' + newId,
+                    userId: 'seed_user',
                     username: users[Math.floor(Math.random() * users.length)],
                     rating: c.rating,
                     title: c.title || '',
@@ -886,13 +870,11 @@ const seedComments = async (req, res) => {
                 };
                 
                 try {
-                    await commentsCollection.insert(comment);
+                    await commentsCollection.insertWithNextId(comment);
                     insertedCount++;
                 } catch (e) {
                     console.error('خطا در ثبت نظر:', e.message);
                 }
-                
-                await new Promise(resolve => setTimeout(resolve, 50));
             }
             
             // Recalculate rating for each product

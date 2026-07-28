@@ -5,12 +5,6 @@ const setCollection = (collection) => {
     console.log('orderController: سفارشات تنظیم شد');
 };
 
-const getNextOrderId = async () => {
-    const orders = await ordersCollection.getAll();
-    const ids = orders.map(o => parseInt(o.id)).filter(id => !isNaN(id));
-    return ids.length > 0 ? Math.max(...ids) + 1 : 1;
-};
-
 const createOrder = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -20,20 +14,23 @@ const createOrder = async (req, res) => {
             return res.status(400).json({ success: false, error: 'همه فیلدها الزامی است' });
         }
 
-        const newId = await getNextOrderId();
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ success: false, error: 'سبد خرید خالی است' });
+        }
 
-        const order = {
-            id: newId,
+        const now = new Date().toISOString();
+
+        // درج امن در برابر درخواست‌های همزمان
+        const order = await ordersCollection.insertWithNextId({
             userId,
             items,
             totalAmount,
             status: 'confirmed',
             address,
             phone,
-            createdAt: new Date().toISOString()
-        };
-
-        await ordersCollection.insert(order);
+            createdAt: now,
+            updatedAt: now
+        });
 
         res.status(201).json({ success: true, data: order });
     } catch (error) {

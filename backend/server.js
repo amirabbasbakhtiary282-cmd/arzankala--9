@@ -8,27 +8,28 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// پشت پروکسی Render قرار داریم؛ برای گرفتن IP واقعی کاربر لازم است
+app.set('trust proxy', 1);
+
 // ============================================================
-// ✅ تنظیمات CORS - ساده و بدون مشکل
+// ✅ تنظیمات CORS
 // ============================================================
+// اگر ALLOWED_ORIGINS تعریف شده باشد فقط همان دامنه‌ها اجازه دارند،
+// در غیر این صورت (پیش‌فرض) همه دامنه‌ها مجاز هستند تا GitHub Pages
+// بتواند بدون تنظیم اضافی به API وصل شود.
+// ============================================================
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(o => o.trim())
+    .filter(Boolean);
+
 app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    origin: allowedOrigins.length > 0 ? allowedOrigins : '*',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// middleware اضافی برای اطمینان
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
-    }
-    next();
-});
-
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // ============================================================
 // 📦 Import route files
@@ -45,23 +46,14 @@ const orderController = require('./controllers/orderController');
 
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
-// ============================================================
-// 💾 In-memory fallback stores (kept for compatibility but prefer jsondb fallback)
-// ============================================================
-const memoryStores = {
-    products: [],
-    users: [],
-    comments: [],
-    orders: []
-};
-
-// Global DB status and collections
+// وضعیت دیتابیس برای گزارش در /health
 let dbStatus = {
     available: false,
-    usingAxioDB: false,
-    dbType: null,
-    jsonFile: null
+    dbType: 'mysql',
+    host: null,
+    database: null
 };
+
 let globalCollections = {
     productsCollection: null,
     usersCollection: null,
@@ -70,207 +62,71 @@ let globalCollections = {
 };
 
 // ============================================================
-// 🗄️ Database initialization
+// 🗄️ راه‌اندازی دیتابیس
 // ============================================================
 async function initializeDatabase() {
-    try {
-        const { connectDB } = require('./config/database');
-        const result = await connectDB();
+    const { connectDB } = require('./config/database');
 
-        const productsCollection = result.productsCollection;
-        const usersCollection = result.usersCollection;
-        const commentsCollection = result.commentsCollection;
-        const ordersCollection = result.ordersCollection;
+    // در صورت شکست، connectDB خودش چند بار تلاش می‌کند و
+    // در نهایت خطا می‌دهد تا سرور با وضعیت خطا متوقف شود.
+    const result = await connectDB();
 
-        // set global collections for /health and other uses
-        globalCollections = { productsCollection, usersCollection, commentsCollection, ordersCollection };
+    globalCollections = {
+        productsCollection: result.productsCollection,
+        usersCollection: result.usersCollection,
+        commentsCollection: result.commentsCollection,
+        ordersCollection: result.ordersCollection
+    };
 
-        const usingAxio = !!result.usingAxioDB;
-        dbStatus.usingAxioDB = usingAxio;
-        dbStatus.dbType = result.dbType || (usingAxio ? 'AxioDB' : 'JSON');
-        dbStatus.jsonFile = result.jsonFile || null;
-        // consider database available if AxioDB connected or JSON fallback file exists
-        dbStatus.available = usingAxio || !!dbStatus.jsonFile;
+    dbStatus = {
+        available: true,
+        dbType: result.dbType,
+        host: result.host,
+        database: result.database
+    };
 
-        if (usingAxio) {
-            console.log('✅ اتصال به دیتابیس AxioDB برقرار شد');
-            console.log(`🌐 محیط گرافیکی: http://localhost:27018`);
-        } else {
-            console.warn('⚠️ اتصال به AxioDB برقرار نشد — از json file fallback استفاده می‌شود');
-            if (dbStatus.jsonFile) console.log(`📁 مسیر دیتابیس فایل‌محور: ${dbStatus.jsonFile}`);
+    productController.setCollection(result.productsCollection);
+    userController.setCollection(result.usersCollection);
+    commentController.setCollections(result.commentsCollection, result.productsCollection);
+    orderController.setCollection(result.ordersCollection);
+
+    // در اولین اجرا، اگر دیتابیس خالی بود داده‌های اولیه وارد می‌شود
+    if (process.env.AUTO_SEED !== 'false') {
+        try {
+            const { autoSeed } = require('./seed');
+            await autoSeed(globalCollections);
+        } catch (e) {
+            // خطای seed نباید جلوی بالا آمدن سرور را بگیرد
+            console.error('⚠️ خطا در داده‌گذاری اولیه (سرور همچنان اجرا می‌شود):', e.message);
         }
-
-        productController.setCollection(productsCollection);
-        userController.setCollection(usersCollection);
-        commentController.setCollections(commentsCollection, productsCollection);
-        orderController.setCollection(ordersCollection);
-
-        return { useDatabase: usingAxio, collections: globalCollections };
-    } catch (error) {
-        console.error('❌ خطا در initializeDatabase:', error.message);
-        // As a last resort, fall back to basic in-memory mock (non-persistent)
-        console.warn('��️ ورود به حالت حافظهٔ موقت (in-memory mock)');
-
-        const mockCollection = (storeName) => ({
-            store: memoryStores[storeName],
-            async insert(doc) {
-                const newDoc = { ...doc, id: Date.now(), documentId: `mem_${Date.now()}`, createdAt: new Date().toISOString() };
-                this.store.push(newDoc);
-                return { success: true, data: newDoc };
-            },
-            async find(query = {}) {
-                let results = [...this.store];
-                if (query.category) results = results.filter(p => p.category === query.category);
-                if (query.search) {
-                    const term = query.search.toLowerCase();
-                    results = results.filter(p => p.name.toLowerCase().includes(term));
-                }
-                return { success: true, data: { documents: results } };
-            },
-            async findOne(query) {
-                const key = Object.keys(query)[0];
-                const val = query[key];
-                const found = this.store.find(p => p[key] === val);
-                return { success: true, data: found };
-            },
-            async update(query, update) {
-                const key = Object.keys(query)[0];
-                const val = query[key];
-                const idx = this.store.findIndex(p => p[key] === val);
-                if (idx >= 0) {
-                    this.store[idx] = { ...this.store[idx], ...update, updatedAt: new Date().toISOString() };
-                    return { success: true, data: this.store[idx] };
-                }
-                return { success: false, error: 'Not found' };
-            },
-            async delete(query) {
-                const key = Object.keys(query)[0];
-                const val = query[key];
-                const idx = this.store.findIndex(p => p[key] === val);
-                if (idx >= 0) {
-                    this.store.splice(idx, 1);
-                    return { success: true };
-                }
-                return { success: false, error: 'Not found' };
-            },
-            async count() { return { success: true, count: this.store.length }; },
-            async getAll() { return this.store; }
-        });
-
-        const mockCollections = {
-            productsCollection: mockCollection('products'),
-            usersCollection: mockCollection('users'),
-            commentsCollection: mockCollection('comments'),
-            ordersCollection: mockCollection('orders')
-        };
-
-        // set global collections and dbStatus for mock
-        globalCollections = mockCollections;
-        dbStatus = { available: false, usingAxioDB: false, dbType: 'in-memory', jsonFile: null };
-
-        productController.setCollection(mockCollections.productsCollection);
-        userController.setCollection(mockCollections.usersCollection);
-        commentController.setCollections(mockCollections.commentsCollection, mockCollections.productsCollection);
-        orderController.setCollection(mockCollections.ordersCollection);
-
-        return { useDatabase: false, collections: mockCollections };
     }
+
+    return globalCollections;
 }
 
-// helper to get counts from various collection wrappers
+// شمارش رکوردهای یک جدول برای /health
 async function getCountFromCollection(col) {
     if (!col) return 0;
     try {
-        if (typeof col.count === 'function') {
-            const c = await col.count();
-            if (typeof c === 'number') return c;
-            if (c && typeof c.count === 'number') return c.count;
-            // sometimes returns array
-            if (Array.isArray(c)) return c.length;
-        }
-        if (typeof col.getAll === 'function') {
-            const arr = await col.getAll();
-            if (Array.isArray(arr)) return arr.length;
-            // some wrappers return objects directly
-            if (arr && Array.isArray(arr.data)) return arr.data.length;
-        }
-        if (typeof col.find === 'function') {
-            const res = await col.find({});
-            if (Array.isArray(res)) return res.length;
-            if (res && res.data && Array.isArray(res.data.documents)) return res.data.documents.length;
-        }
+        return await col.count();
     } catch (e) {
-        console.error('error counting collection:', e.message);
+        console.error('خطا در شمارش رکوردها:', e.message);
+        return 0;
     }
-    return 0;
 }
 
 // ============================================================
-// 🚀 Start server
+// 🚀 راه‌اندازی سرور
 // ============================================================
 async function startServer() {
     try {
         await initializeDatabase();
 
+        // ---------- مسیرهای API ----------
         app.use('/api/products', productRoutes);
         app.use('/api/users', userRoutes);
         app.use('/api/comments', commentRoutes);
         app.use('/api/orders', orderRoutes);
-
-        const frontendPath = path.join(__dirname, '..', 'frontend');
-        app.use(express.static(frontendPath));
-
-        app.get('/', (req, res) => {
-            res.sendFile(path.join(frontendPath, 'index.html'));
-        });
-
-        app.get('*', (req, res, next) => {
-            if (req.path.startsWith('/api') || req.path === '/health') {
-                return next();
-            }
-            res.sendFile(path.join(frontendPath, 'index.html'));
-        });
-
-        app.get('/health', async (req, res) => {
-            try {
-                const productsCount = await getCountFromCollection(globalCollections.productsCollection);
-                const usersCount = await getCountFromCollection(globalCollections.usersCollection);
-                const commentsCount = await getCountFromCollection(globalCollections.commentsCollection);
-                const ordersCount = await getCountFromCollection(globalCollections.ordersCollection);
-
-                res.json({
-                    success: true,
-                    status: 'OK',
-                    timestamp: new Date().toISOString(),
-                    database: {
-                        available: dbStatus.available,
-                        dbType: dbStatus.dbType,
-                        jsonFile: dbStatus.jsonFile
-                    },
-                    counts: {
-                        products: productsCount,
-                        users: usersCount,
-                        comments: commentsCount,
-                        orders: ordersCount
-                    }
-                });
-            } catch (e) {
-                res.json({ success: false, error: e.message });
-            }
-        });
-
-        app.get('/debug/frontend-path', (req, res) => {
-            const fs = require('fs');
-            const fp = path.join(__dirname, '..', 'frontend');
-            res.json({
-                __dirname,
-                frontendPath: fp,
-                indexPath: path.join(fp, 'index.html'),
-                frontendExists: fs.existsSync(fp),
-                indexExists: fs.existsSync(path.join(fp, 'index.html')),
-                frontendContents: fs.existsSync(fp) ? fs.readdirSync(fp) : []
-            });
-        });
 
         const exchangeRateService = require('./services/exchangeRateService');
 
@@ -299,23 +155,98 @@ async function startServer() {
             }
         });
 
+        // ---------- بررسی سلامت سرویس ----------
+        app.get('/health', async (req, res) => {
+            try {
+                const [products, users, comments, orders] = await Promise.all([
+                    getCountFromCollection(globalCollections.productsCollection),
+                    getCountFromCollection(globalCollections.usersCollection),
+                    getCountFromCollection(globalCollections.commentsCollection),
+                    getCountFromCollection(globalCollections.ordersCollection)
+                ]);
+
+                res.json({
+                    success: true,
+                    status: 'OK',
+                    timestamp: new Date().toISOString(),
+                    database: {
+                        available: dbStatus.available,
+                        dbType: dbStatus.dbType,
+                        host: dbStatus.host,
+                        database: dbStatus.database
+                    },
+                    counts: { products, users, comments, orders }
+                });
+            } catch (e) {
+                res.status(503).json({
+                    success: false,
+                    status: 'DEGRADED',
+                    error: e.message,
+                    database: { available: false, dbType: dbStatus.dbType }
+                });
+            }
+        });
+
+        // ---------- فایل‌های استاتیک فرانت‌اند ----------
+        const frontendPath = path.join(__dirname, '..', 'frontend');
+        app.use(express.static(frontendPath));
+
+        app.get('/', (req, res) => {
+            res.sendFile(path.join(frontendPath, 'index.html'));
+        });
+
+        // مسیرهای ناشناختهٔ غیر-API به فرانت‌اند سپرده می‌شوند
+        app.get('*', (req, res, next) => {
+            if (req.path.startsWith('/api') || req.path === '/health') {
+                return next();
+            }
+            res.sendFile(path.join(frontendPath, 'index.html'));
+        });
+
         app.use(notFoundHandler);
         app.use(errorHandler);
 
-        app.listen(PORT, () => {
+        const server = app.listen(PORT, '0.0.0.0', () => {
             console.log('');
             console.log('========================================');
             console.log('🚀 سرور ارزان‌کالا روشن شد');
             console.log('========================================');
-            console.log(`📡 آدرس: http://localhost:${PORT}`);
-            console.log(`📡 محصولات: http://localhost:${PORT}/api/products`);
-            console.log(`📡 سلامت: http://localhost:${PORT}/health`);
+            console.log(`📡 پورت: ${PORT}`);
+            console.log(`🗄️  دیتابیس: MySQL @ ${dbStatus.host}/${dbStatus.database}`);
+            console.log(`📡 محصولات: /api/products`);
+            console.log(`📡 سلامت: /health`);
             console.log('========================================');
         });
+
+        // ---------- خاموش شدن تمیز (برای Render) ----------
+        const shutdown = async (signal) => {
+            console.log(`\n${signal} دریافت شد — در حال خاموش کردن سرور...`);
+            server.close(async () => {
+                try {
+                    const { closeDB } = require('./config/database');
+                    await closeDB();
+                    console.log('✅ اتصال دیتابیس بسته شد');
+                } catch { /* ignore */ }
+                process.exit(0);
+            });
+            // اگر ظرف ۱۰ ثانیه بسته نشد، اجباری خارج شو
+            setTimeout(() => process.exit(1), 10000).unref();
+        };
+
+        process.on('SIGTERM', () => shutdown('SIGTERM'));
+        process.on('SIGINT', () => shutdown('SIGINT'));
+
     } catch (error) {
-        console.error('❌ خطا در راه‌اندازی سرور:', error.message);
+        console.error('');
+        console.error('========================================');
+        console.error('❌ سرور راه‌اندازی نشد');
+        console.error('========================================');
+        console.error(error.message);
+        console.error('========================================');
         process.exit(1);
     }
 }
 
 startServer();
+
+module.exports = app;

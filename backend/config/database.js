@@ -1,260 +1,515 @@
-const { AxioDB } = require('axiodb');
-const path = require('path');
-const fs = require('fs');
+// ============================================================
+// config/database.js
+// اتصال به MySQL — تنها دیتابیس پروژه
+// ============================================================
+// این ماژول یک استخر اتصال (pool) به MySQL می‌سازد، جدول‌ها را
+// در صورت نبود ایجاد می‌کند و برای هر جدول یک «collection» با
+// همان اینترفیسی که کنترلرها انتظار دارند برمی‌گرداند:
+//   getAll / getById / getByUsername / find / insert / update / delete / count
+// ============================================================
 
-const DB_PATH = path.join(__dirname, '..', 'AxioDB');
+const mysql = require('mysql2/promise');
 
-if (!fs.existsSync(DB_PATH)) {
-    fs.mkdirSync(DB_PATH, { recursive: true });
+// ============================================================
+// 🔧 خواندن تنظیمات اتصال از متغیرهای محیطی
+// ============================================================
+// از هر دو حالت پشتیبانی می‌کند:
+//   ۱) یک URL کامل:  mysql://user:pass@host:port/dbname
+//      (نام‌های رایج: DATABASE_URL, MYSQL_URL, MYSQL_PUBLIC_URL, JAWSDB_URL, CLEARDB_DATABASE_URL)
+//   ۲) متغیرهای جدا: MYSQLHOST / MYSQLPORT / MYSQLUSER / MYSQLPASSWORD / MYSQLDATABASE
+//      (و معادل‌های DB_HOST / DB_PORT / DB_USER / DB_PASSWORD / DB_NAME)
+// ============================================================
+function buildConnectionConfig() {
+    const url =
+        process.env.DATABASE_URL ||
+        process.env.MYSQL_URL ||
+        process.env.MYSQL_PUBLIC_URL ||
+        process.env.JAWSDB_URL ||
+        process.env.CLEARDB_DATABASE_URL ||
+        '';
+
+    let cfg;
+
+    if (url) {
+        const parsed = new URL(url);
+        cfg = {
+            host: decodeURIComponent(parsed.hostname),
+            port: parseInt(parsed.port || '3306', 10),
+            user: decodeURIComponent(parsed.username || 'root'),
+            password: decodeURIComponent(parsed.password || ''),
+            database: decodeURIComponent((parsed.pathname || '').replace(/^\//, '')) || 'railway',
+            source: 'url'
+        };
+        // بعضی سرویس‌ها SSL را در query string اعلام می‌کنند
+        if (/ssl-mode=REQUIRED|sslaccept=strict|ssl=true/i.test(parsed.search || '')) {
+            cfg.forceSSL = true;
+        }
+    } else {
+        cfg = {
+            host: process.env.MYSQLHOST || process.env.DB_HOST || '127.0.0.1',
+            port: parseInt(process.env.MYSQLPORT || process.env.DB_PORT || '3306', 10),
+            user: process.env.MYSQLUSER || process.env.DB_USER || 'root',
+            password: process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || '',
+            database: process.env.MYSQLDATABASE || process.env.DB_NAME || 'arzankala',
+            source: 'env'
+        };
+    }
+
+    // فعال‌سازی SSL (برای ارائه‌دهنده‌های ابری مثل Aiven / PlanetScale)
+    const sslEnv = (process.env.MYSQL_SSL || process.env.DB_SSL || '').toLowerCase();
+    if (cfg.forceSSL || sslEnv === 'true' || sslEnv === 'required') {
+        cfg.ssl = { rejectUnauthorized: false };
+    }
+    delete cfg.forceSSL;
+
+    return cfg;
 }
 
-const db = new AxioDB({
-    GUI: true,
-    port: 27018,
-    CustomPath: DB_PATH
-});
+const dbConfig = buildConnectionConfig();
 
-function createCollectionWrapper(axiodbCollection) {
-    // Normalize AxioDB collection API to a predictable interface used by controllers
+let pool = null;
+
+// ============================================================
+// 🗄️ تعریف جدول‌ها
+// ============================================================
+// فیلدهای «ساختاردار» (آرایه/شیء) در ستون JSON ذخیره می‌شوند تا
+// دقیقاً همان شکل داده‌ای که کنترلرها انتظار دارند حفظ شود.
+// ============================================================
+const SCHEMA = [
+    `CREATE TABLE IF NOT EXISTS products (
+        id              INT AUTO_INCREMENT PRIMARY KEY,
+        name            VARCHAR(255) NOT NULL,
+        category        VARCHAR(100),
+        price           BIGINT DEFAULT 0,
+        oldPrice        BIGINT NULL,
+        priceUSD        DECIMAL(12,2) NULL,
+        oldPriceUSD     DECIMAL(12,2) NULL,
+        image           VARCHAR(255),
+        stock           INT DEFAULT 0,
+        rating          DECIMAL(3,1) DEFAULT 0,
+        ratingCount     INT DEFAULT 0,
+        description     TEXT,
+        specs           JSON,
+        viewCount       INT DEFAULT 0,
+        purchaseCount   INT DEFAULT 0,
+        wishlistCount   INT DEFAULT 0,
+        createdAt       VARCHAR(40),
+        updatedAt       VARCHAR(40),
+        INDEX idx_products_category (category),
+        INDEX idx_products_price (price)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+    `CREATE TABLE IF NOT EXISTS users (
+        id              INT AUTO_INCREMENT PRIMARY KEY,
+        username        VARCHAR(190) NOT NULL UNIQUE,
+        password        VARCHAR(255) NOT NULL,
+        fullname        VARCHAR(255) DEFAULT '',
+        email           VARCHAR(255) DEFAULT '',
+        mobile          VARCHAR(50)  DEFAULT '',
+        birthYear       INT NULL,
+        role            VARCHAR(20)  DEFAULT 'user',
+        isActive        TINYINT(1)   DEFAULT 1,
+        addresses       JSON,
+        wishlist        JSON,
+        searchHistory   JSON,
+        settings        JSON,
+        totalOrders     INT DEFAULT 0,
+        totalSpent      BIGINT DEFAULT 0,
+        lastLogin       VARCHAR(40) NULL,
+        createdAt       VARCHAR(40),
+        updatedAt       VARCHAR(40)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+    `CREATE TABLE IF NOT EXISTS comments (
+        id                  INT AUTO_INCREMENT PRIMARY KEY,
+        productId           INT NOT NULL,
+        userId              VARCHAR(100),
+        username            VARCHAR(190),
+        rating              INT DEFAULT 0,
+        title               VARCHAR(255) DEFAULT '',
+        content             TEXT,
+        pros                JSON,
+        cons                JSON,
+        images              JSON,
+        isApproved          TINYINT(1) DEFAULT 0,
+        isVerifiedPurchase  TINYINT(1) DEFAULT 0,
+        helpfulCount        INT DEFAULT 0,
+        unhelpfulCount      INT DEFAULT 0,
+        helpfulUsers        JSON,
+        reply               JSON,
+        aiAnalysis          JSON,
+        createdAt           VARCHAR(40),
+        updatedAt           VARCHAR(40),
+        INDEX idx_comments_product (productId),
+        INDEX idx_comments_approved (isApproved)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+    `CREATE TABLE IF NOT EXISTS orders (
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        userId       INT NOT NULL,
+        items        JSON,
+        totalAmount  BIGINT DEFAULT 0,
+        status       VARCHAR(50) DEFAULT 'confirmed',
+        address      TEXT,
+        phone        VARCHAR(50),
+        createdAt    VARCHAR(40),
+        updatedAt    VARCHAR(40),
+        INDEX idx_orders_user (userId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+];
+
+// ستون‌هایی که مقدارشان JSON است و باید هنگام خواندن/نوشتن تبدیل شوند
+const JSON_COLUMNS = {
+    products: ['specs'],
+    users: ['addresses', 'wishlist', 'searchHistory', 'settings'],
+    comments: ['pros', 'cons', 'images', 'helpfulUsers', 'reply', 'aiAnalysis'],
+    orders: ['items']
+};
+
+// ستون‌هایی که باید به boolean واقعی تبدیل شوند (MySQL آن‌ها را 0/1 برمی‌گرداند)
+const BOOL_COLUMNS = {
+    products: [],
+    users: ['isActive'],
+    comments: ['isApproved', 'isVerifiedPurchase'],
+    orders: []
+};
+
+// ============================================================
+// 🔁 تبدیل ردیف MySQL به شیء جاوااسکریپت (همان شکل قبلی)
+// ============================================================
+function parseRow(table, row) {
+    if (!row) return null;
+    const out = { ...row };
+
+    for (const col of JSON_COLUMNS[table] || []) {
+        const val = out[col];
+        if (val === null || val === undefined) {
+            // مقدار پیش‌فرض منطقی بر اساس نوع فیلد
+            out[col] = (col === 'reply')
+                ? { content: '', repliedBy: null, repliedAt: null }
+                : (col === 'specs' || col === 'settings' || col === 'aiAnalysis') ? (col === 'aiAnalysis' ? null : {}) : [];
+            continue;
+        }
+        if (typeof val === 'string') {
+            try { out[col] = JSON.parse(val); } catch { /* مقدار خام بماند */ }
+        }
+        // اگر درایور خودش parse کرده باشد، همان مقدار درست است
+    }
+
+    for (const col of BOOL_COLUMNS[table] || []) {
+        if (out[col] !== null && out[col] !== undefined) {
+            out[col] = Boolean(out[col]);
+        }
+    }
+
+    // اعداد اعشاری MySQL به صورت رشته برمی‌گردند
+    if (table === 'products') {
+        if (out.rating !== null && out.rating !== undefined) out.rating = parseFloat(out.rating);
+        if (out.priceUSD !== null && out.priceUSD !== undefined) out.priceUSD = parseFloat(out.priceUSD);
+        if (out.oldPriceUSD !== null && out.oldPriceUSD !== undefined) out.oldPriceUSD = parseFloat(out.oldPriceUSD);
+    }
+
+    return out;
+}
+
+// آماده‌سازی مقدار برای نوشتن در MySQL
+function serializeValue(table, col, val) {
+    if ((JSON_COLUMNS[table] || []).includes(col)) {
+        return val === undefined ? null : JSON.stringify(val ?? null);
+    }
+    if ((BOOL_COLUMNS[table] || []).includes(col)) {
+        if (val === undefined || val === null) return null;
+        return val ? 1 : 0;
+    }
+    if (val === undefined) return null;
+    // شیء/آرایه‌ای که ستون JSON نیست را هم به رشته تبدیل می‌کنیم تا خطا ندهد
+    if (val !== null && typeof val === 'object') return JSON.stringify(val);
+    return val;
+}
+
+// ============================================================
+// 📚 ساخت اینترفیس collection برای هر جدول
+// ============================================================
+function createCollection(table) {
+    // فقط ستون‌هایی که واقعاً در جدول هستند نوشته می‌شوند
+    let allowedColumns = null;
+
+    async function getColumns() {
+        if (allowedColumns) return allowedColumns;
+        const [rows] = await pool.query(
+            `SELECT COLUMN_NAME AS c FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`, [table]
+        );
+        allowedColumns = new Set(rows.map(r => r.c));
+        return allowedColumns;
+    }
+
+    // ساخت WHERE از یک فیلتر ساده {key: value}
+    function buildWhere(filter) {
+        const keys = Object.keys(filter || {});
+        if (keys.length === 0) return { sql: '', params: [] };
+        const parts = keys.map(k => `\`${k}\` = ?`);
+        const params = keys.map(k => serializeValue(table, k, filter[k]));
+        return { sql: ' WHERE ' + parts.join(' AND '), params };
+    }
+
     return {
         async find(filter) {
-            try {
-                if (!axiodbCollection || typeof axiodbCollection.query !== 'function') {
-                    console.error('find: axiodbCollection is invalid');
-                    return [];
-                }
-                const result = await axiodbCollection.query(filter || {}).Limit(10000).exec();
-                const docs = result?.data?.documents || [];
-                return docs.map(doc => {
-                    const plain = { ...doc };
-                    if (plain._id && !plain.id) {
-                        plain.id = plain._id;
-                    }
-                    return plain;
-                });
-            } catch (e) {
-                console.error('find error:', e.message);
-                return [];
-            }
+            const { sql, params } = buildWhere(filter);
+            const [rows] = await pool.query(`SELECT * FROM \`${table}\`${sql}`, params);
+            return rows.map(r => parseRow(table, r));
         },
 
         async getAll() {
-            return this.find({});
+            const [rows] = await pool.query(`SELECT * FROM \`${table}\``);
+            return rows.map(r => parseRow(table, r));
         },
 
         async getById(id) {
-            const docs = await this.find({});
-            return docs.find(d => d.id === parseInt(id) || d.id === id || d._id === id) || null;
+            const numeric = parseInt(id, 10);
+            const [rows] = await pool.query(
+                `SELECT * FROM \`${table}\` WHERE id = ? LIMIT 1`,
+                [isNaN(numeric) ? id : numeric]
+            );
+            return rows.length ? parseRow(table, rows[0]) : null;
         },
 
         async getByUsername(username) {
-            const docs = await this.find({});
-            return docs.find(d => d.username === username) || null;
+            const [rows] = await pool.query(
+                `SELECT * FROM \`${table}\` WHERE username = ? LIMIT 1`, [username]
+            );
+            return rows.length ? parseRow(table, rows[0]) : null;
         },
 
         async insert(data) {
-            try {
-                const res = await axiodbCollection.insert(data);
-                // Try to normalize return value: prefer inserted document if provided
-                if (res && res.data) return res.data;
-                if (res && typeof res === 'object') return res;
-                return data;
-            } catch (e) {
-                console.error('insert error:', e.message);
-                throw e;
-            }
+            const cols = await getColumns();
+            // اگر id داده نشده باشد، AUTO_INCREMENT خود MySQL آن را تعیین می‌کند
+            const entries = Object.entries(data)
+                .filter(([k, v]) => cols.has(k) && !(k === 'id' && (v === undefined || v === null)));
+
+            if (entries.length === 0) throw new Error(`insert: هیچ ستون معتبری برای جدول ${table} ارسال نشد`);
+
+            const names = entries.map(([k]) => `\`${k}\``).join(', ');
+            const holders = entries.map(() => '?').join(', ');
+            const params = entries.map(([k, v]) => serializeValue(table, k, v));
+
+            const [result] = await pool.query(
+                `INSERT INTO \`${table}\` (${names}) VALUES (${holders})`, params
+            );
+
+            // شناسهٔ نهایی: یا همان که دادیم، یا آنچه MySQL تولید کرده
+            const finalId = (data.id !== undefined && data.id !== null) ? data.id : result.insertId;
+            return await this.getById(finalId);
         },
 
         async update(filter, updates) {
-            try {
-                const op = axiodbCollection.update(filter || {});
-                // AxioDB UpdateOne/UpdateMany may vary; try UpdateOne first
-                if (typeof op.UpdateOne === 'function') {
-                    await op.UpdateOne(updates);
-                } else if (typeof op.updateOne === 'function') {
-                    await op.updateOne(updates);
-                } else if (typeof op.exec === 'function') {
-                    await op.exec(updates);
-                }
-                // Try to return the updated document for convenience
-                const id = filter && (filter.id || filter._id);
-                if (id) {
-                    return await this.getById(id);
-                }
-                return true;
-            } catch (e) {
-                console.error('update error:', e.message);
-                throw e;
-            }
+            const cols = await getColumns();
+            const entries = Object.entries(updates).filter(([k]) => cols.has(k) && k !== 'id');
+            if (entries.length === 0) return await this.getById(filter && filter.id);
+
+            const setSql = entries.map(([k]) => `\`${k}\` = ?`).join(', ');
+            const setParams = entries.map(([k, v]) => serializeValue(table, k, v));
+
+            const { sql: whereSql, params: whereParams } = buildWhere(filter);
+            if (!whereSql) throw new Error('update: فیلتر خالی مجاز نیست');
+
+            await pool.query(
+                `UPDATE \`${table}\` SET ${setSql}${whereSql}`,
+                [...setParams, ...whereParams]
+            );
+
+            // بازگرداندن رکورد به‌روزشده (مثل رفتار قبلی)
+            const key = Object.keys(filter)[0];
+            const [rows] = await pool.query(
+                `SELECT * FROM \`${table}\` WHERE \`${key}\` = ? LIMIT 1`,
+                [serializeValue(table, key, filter[key])]
+            );
+            return rows.length ? parseRow(table, rows[0]) : null;
         },
 
         async delete(filter) {
-            try {
-                const op = axiodbCollection.delete(filter || {});
-                let res;
-                if (op) {
-                    if (typeof op.deleteOne === 'function') {
-                        res = await op.deleteOne();
-                    } else if (typeof op.DeleteOne === 'function') {
-                        res = await op.DeleteOne();
-                    } else if (typeof op.exec === 'function') {
-                        res = await op.exec();
-                    }
-                }
-                // Normalize to boolean success if possible
-                if (res && typeof res === 'object') {
-                    if ('success' in res) return res.success;
-                    if ('deletedCount' in res) return res.deletedCount > 0;
-                }
-                return true;
-            } catch (e) {
-                console.error('delete error:', e.message);
-                throw e;
-            }
+            const { sql, params } = buildWhere(filter);
+            if (!sql) throw new Error('delete: فیلتر خالی مجاز نیست');
+            const [result] = await pool.query(`DELETE FROM \`${table}\`${sql}`, params);
+            return result.affectedRows > 0;
         },
 
         async count(filter) {
-            try {
-                const docs = await this.find(filter || {});
-                return Array.isArray(docs) ? docs.length : 0;
-            } catch (e) {
-                console.error('count error:', e.message);
-                return 0;
-            }
+            const { sql, params } = buildWhere(filter);
+            const [rows] = await pool.query(`SELECT COUNT(*) AS c FROM \`${table}\`${sql}`, params);
+            return rows[0].c;
+        },
+
+        // بیشترین id فعلی — برای تولید id بعدی بدون خواندن کل جدول
+        async maxId() {
+            const [rows] = await pool.query(`SELECT COALESCE(MAX(id), 0) AS m FROM \`${table}\``);
+            return Number(rows[0].m) || 0;
+        },
+
+        // ------------------------------------------------------------
+        // درج با شناسهٔ خودکار
+        // ------------------------------------------------------------
+        // شناسه را خود MySQL از طریق AUTO_INCREMENT تولید می‌کند؛
+        // این کار کاملاً اتمیک است و در درخواست‌های همزمان هرگز
+        // شناسهٔ تکراری یا رکورد گم‌شده به وجود نمی‌آید.
+        // ------------------------------------------------------------
+        async insertWithNextId(data) {
+            const payload = { ...data };
+            delete payload.id;
+            return await this.insert(payload);
         }
     };
 }
 
-// Persistent JSON fallback utilities
-const JSON_DB_FILE = path.join(DB_PATH, 'fallback-db.json');
-function loadJsonDB() {
+// ============================================================
+// 🏗️ ساخت دیتابیس در صورت نبود
+// ============================================================
+// روی سرویس‌های ابری معمولاً دیتابیس از قبل ساخته شده است، اما
+// روی سرور یا سیستم شخصی ممکن است هنوز وجود نداشته باشد.
+// ============================================================
+async function createDatabaseIfMissing() {
+    // اتصال بدون انتخاب دیتابیس
+    const admin = await mysql.createConnection({
+        host: dbConfig.host,
+        port: dbConfig.port,
+        user: dbConfig.user,
+        password: dbConfig.password,
+        ssl: dbConfig.ssl,
+        connectTimeout: 15000
+    });
+
     try {
-        if (fs.existsSync(JSON_DB_FILE)) {
-            const raw = fs.readFileSync(JSON_DB_FILE, 'utf8');
-            return JSON.parse(raw);
-        }
-    } catch (e) {
-        console.error('loadJsonDB error:', e.message);
+        await admin.query(
+            `CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\`
+             CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+        );
+        console.log(`✅ دیتابیس «${dbConfig.database}» ساخته شد`);
+    } finally {
+        await admin.end();
     }
-    return { products: [], users: [], comments: [], orders: [] };
 }
 
-function saveJsonDB(dbObj) {
-    try {
-        fs.writeFileSync(JSON_DB_FILE + '.tmp', JSON.stringify(dbObj, null, 2), 'utf8');
-        fs.renameSync(JSON_DB_FILE + '.tmp', JSON_DB_FILE);
-    } catch (e) {
-        console.error('saveJsonDB error:', e.message);
+// ============================================================
+// 🏗️ ساخت جدول‌ها
+// ============================================================
+async function ensureSchema() {
+    for (const stmt of SCHEMA) {
+        await pool.query(stmt);
     }
+    console.log('✅ ساختار جدول‌های MySQL بررسی/ایجاد شد');
 }
 
-function createJsonCollection(dbObj, key) {
-    return {
-        find: async (filter) => {
-            return dbObj[key];
-        },
-        getAll: async () => dbObj[key],
-        getById: async (id) => dbObj[key].find(d => d.id === parseInt(id) || d.id === id) || null,
-        getByUsername: async (username) => dbObj[key].find(d => d.username === username) || null,
-        insert: async (data) => {
-            const item = { ...data };
-            if (!Object.prototype.hasOwnProperty.call(item, 'id')) item.id = Date.now();
-            dbObj[key].push(item);
-            saveJsonDB(dbObj);
-            return item;
-        },
-        update: async (filter, updates) => {
-            const keyName = Object.keys(filter)[0];
-            const val = filter[keyName];
-            const idx = dbObj[key].findIndex(d => String(d[keyName]) === String(val));
-            if (idx >= 0) {
-                dbObj[key][idx] = { ...dbObj[key][idx], ...updates, updatedAt: new Date().toISOString() };
-                saveJsonDB(dbObj);
-                return dbObj[key][idx];
-            }
-            return null;
-        },
-        delete: async (filter) => {
-            const keyName = Object.keys(filter)[0];
-            const val = filter[keyName];
-            const origLen = dbObj[key].length;
-            dbObj[key] = dbObj[key].filter(d => String(d[keyName]) !== String(val));
-            const changed = dbObj[key].length < origLen;
-            if (changed) saveJsonDB(dbObj);
-            return changed;
-        },
-        count: async (filter) => {
-            try {
-                if (!filter || Object.keys(filter).length === 0) return dbObj[key].length;
-                // basic filter: count items matching all filter keys
-                const keys = Object.keys(filter);
-                const matched = dbObj[key].filter(item => keys.every(k => String(item[k]) === String(filter[k])));
-                return matched.length;
-            } catch (e) {
-                console.error('json count error:', e.message);
-                return 0;
-            }
-        }
-    };
-}
+// ============================================================
+// ⏳ اتصال با تلاش مجدد
+// ============================================================
+// روی Render گاهی سرور زودتر از دیتابیس بالا می‌آید، پس چند بار
+// با تأخیر فزاینده تلاش می‌کنیم و در صورت شکست کامل خطا می‌دهیم.
+// ============================================================
+const MAX_RETRIES = parseInt(process.env.DB_MAX_RETRIES || '8', 10);
+const RETRY_BASE_MS = parseInt(process.env.DB_RETRY_DELAY_MS || '2000', 10);
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 const connectDB = async () => {
-    // Allow forcing JSON fallback via env var
-    const forceJson = process.env.FORCE_JSON_DB === 'true' || process.env.USE_JSON_DB === 'true';
+    const safeTarget = `${dbConfig.user}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`;
+    console.log(`🔄 در حال اتصال به MySQL: ${safeTarget}`);
 
-    if (!forceJson) {
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            console.log('🔄 در حال اتصال به دیتابیس AxioDB...');
+            pool = mysql.createPool({
+                host: dbConfig.host,
+                port: dbConfig.port,
+                user: dbConfig.user,
+                password: dbConfig.password,
+                database: dbConfig.database,
+                ssl: dbConfig.ssl,
+                waitForConnections: true,
+                connectionLimit: parseInt(process.env.DB_POOL_SIZE || '10', 10),
+                queueLimit: 0,
+                charset: 'utf8mb4',
+                enableKeepAlive: true,
+                keepAliveInitialDelay: 10000,
+                connectTimeout: 15000,
+                timezone: 'Z',
+                // اعداد بزرگ به صورت رشته برنگردند
+                supportBigNumbers: true,
+                bigNumberStrings: false
+            });
 
-            const mainDB = await db.createDB('ArzanKalaDB');
+            // تست واقعی اتصال
+            let conn;
+            try {
+                conn = await pool.getConnection();
+            } catch (err) {
+                // اگر فقط «دیتابیس وجود ندارد» بود، یک بار تلاش می‌کنیم بسازیمش
+                if (err && (err.code === 'ER_BAD_DB_ERROR' || err.errno === 1049)) {
+                    console.warn(`⚠️ دیتابیس «${dbConfig.database}» وجود ندارد — تلاش برای ساخت آن...`);
+                    await createDatabaseIfMissing();
+                    conn = await pool.getConnection();
+                } else {
+                    throw err;
+                }
+            }
+            await conn.ping();
+            conn.release();
 
-            let productsRaw, usersRaw, commentsRaw, ordersRaw;
+            console.log(`✅ اتصال به MySQL برقرار شد (تلاش ${attempt})`);
 
-            try { productsRaw = await mainDB.createCollection('products'); } catch (e) { productsRaw = await mainDB.createCollection('products'); }
-            try { usersRaw = await mainDB.createCollection('users'); } catch (e) { usersRaw = await mainDB.createCollection('users'); }
-            try { commentsRaw = await mainDB.createCollection('comments'); } catch (e) { commentsRaw = await mainDB.createCollection('comments'); }
-            try { ordersRaw = await mainDB.createCollection('orders'); } catch (e) { ordersRaw = await mainDB.createCollection('orders'); }
+            await ensureSchema();
 
-            const productsCollection = createCollectionWrapper(productsRaw);
-            const usersCollection = createCollectionWrapper(usersRaw);
-            const commentsCollection = createCollectionWrapper(commentsRaw);
-            const ordersCollection = createCollectionWrapper(ordersRaw);
-
-            console.log('✅ اتصال به دیتابیس AxioDB برقرار شد');
-            console.log(`🌐 محیط گرافیکی: http://localhost:27018`);
-
-            // Small delay to allow GUI server to initialize
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            return { productsCollection, usersCollection, commentsCollection, ordersCollection, usingAxioDB: true, dbType: 'axiodb', jsonFile: null };
+            return {
+                productsCollection: createCollection('products'),
+                usersCollection: createCollection('users'),
+                commentsCollection: createCollection('comments'),
+                ordersCollection: createCollection('orders'),
+                dbType: 'mysql',
+                available: true,
+                host: dbConfig.host,
+                database: dbConfig.database,
+                pool
+            };
         } catch (error) {
-            console.error('❌ خطا در اتصال به AxioDB:', error.message);
-            console.error('⚠️ در حال استفاده از دیتابیس JSON جایگزین...');
-            // fall through to JSON fallback
+            lastError = error;
+            // استخر ناموفق را ببندیم تا نشتی نداشته باشیم
+            if (pool) {
+                try { await pool.end(); } catch { /* ignore */ }
+                pool = null;
+            }
+
+            console.error(`❌ تلاش ${attempt}/${MAX_RETRIES} برای اتصال به MySQL ناموفق بود: ${error.message}`);
+
+            if (attempt < MAX_RETRIES) {
+                const delay = Math.min(RETRY_BASE_MS * attempt, 15000);
+                console.log(`⏳ ${Math.round(delay / 1000)} ثانیه صبر و تلاش مجدد...`);
+                await sleep(delay);
+            }
         }
-    } else {
-        console.warn('⚠️ FORCE_JSON_DB enabled - using JSON fallback instead of AxioDB');
     }
 
-    // Persistent JSON fallback
-    const jsonDB = loadJsonDB();
+    // همه تلاش‌ها ناموفق بود
+    const hint = [
+        '',
+        '💡 راهنمای رفع مشکل:',
+        '   • متغیر MYSQL_URL (یا DATABASE_URL) را در تنظیمات سرویس بررسی کنید.',
+        '   • اگر از Railway استفاده می‌کنید حتماً آدرس عمومی (MYSQL_PUBLIC_URL) را بگذارید،',
+        '     نه آدرس داخلی mysql.railway.internal — چون Render به شبکه داخلی Railway دسترسی ندارد.',
+        '   • اگر دیتابیس SSL می‌خواهد، MYSQL_SSL=true را اضافه کنید.',
+        ''
+    ].join('\n');
 
-    const jsonProductsCollection = createJsonCollection(jsonDB, 'products');
-    const jsonUsersCollection = createJsonCollection(jsonDB, 'users');
-    const jsonCommentsCollection = createJsonCollection(jsonDB, 'comments');
-    const jsonOrdersCollection = createJsonCollection(jsonDB, 'orders');
-
-    console.log('⚠️ از دیتابیس JSON جایگزین استفاده می‌شود (فایل ذخیره‌سازی: ' + JSON_DB_FILE + ')');
-
-    return {
-        productsCollection: jsonProductsCollection,
-        usersCollection: jsonUsersCollection,
-        commentsCollection: jsonCommentsCollection,
-        ordersCollection: jsonOrdersCollection,
-        usingAxioDB: false,
-        dbType: 'json',
-        jsonFile: JSON_DB_FILE
-    };
+    throw new Error(`اتصال به MySQL پس از ${MAX_RETRIES} تلاش برقرار نشد: ${lastError && lastError.message}${hint}`);
 };
 
-module.exports = { connectDB, db };
+// دسترسی مستقیم به pool (برای seed و تست)
+const getPool = () => pool;
+
+const closeDB = async () => {
+    if (pool) {
+        try { await pool.end(); } catch { /* ignore */ }
+        pool = null;
+    }
+};
+
+module.exports = { connectDB, getPool, closeDB, dbConfig, createCollection, ensureSchema };

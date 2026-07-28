@@ -1,8 +1,19 @@
+# وابستگی‌ها
 node_modules/
+
+# تنظیمات محرمانه
 .env
-AxioDB/
+.env.local
+.env.*.local
+
+# لاگ‌ها
 *.log
-*.err
-*.txt
-!backend/package.json
-!backend/package-lock.json
+npm-debug.log*
+
+# فایل‌های سیستمی
+.DS_Store
+Thumbs.db
+
+# ویرایشگرها
+.vscode/
+.idea/

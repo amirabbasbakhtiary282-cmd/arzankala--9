@@ -339,12 +339,13 @@ const decreaseStock = async (req, res) => {
 
 const createProduct = async (req, res) => {
     try {
-        let products = await productsCollection.getAll();
-        const ids = products.map(p => parseInt(p.id)).filter(id => !isNaN(id));
-        const newId = ids.length > 0 ? Math.max(...ids) + 1 : 26;
-
         const rate = exchangeRateService.getCurrentRate();
         const body = { ...req.body };
+
+        if (!body.name || body.price === undefined || body.price === null) {
+            return res.status(400).json({ success: false, error: 'نام و قیمت محصول الزامی است' });
+        }
+
         if (body.priceUSD) {
             body.price = convertUsdToToman(body.priceUSD, rate);
         }
@@ -352,17 +353,19 @@ const createProduct = async (req, res) => {
             body.oldPrice = convertUsdToToman(body.oldPriceUSD, rate);
         }
 
-        const newProduct = {
-            id: newId,
+        // شناسه توسط دیتابیس تعیین می‌شود تا از تداخل جلوگیری شود
+        delete body.id;
+
+        const now = new Date().toISOString();
+        const inserted = await productsCollection.insertWithNextId({
             ...body,
             viewCount: 0,
             purchaseCount: 0,
-            createdAt: new Date().toISOString()
-        };
+            createdAt: now,
+            updatedAt: now
+        });
 
-        const inserted = await productsCollection.insert(newProduct);
-        const returned = await productsCollection.getById(inserted.id || newId);
-        const response = applyExchangeRate(returned);
+        const response = applyExchangeRate(inserted);
         res.status(201).json({ success: true, data: response });
     } catch (error) {
         console.error('خطا در createProduct:', error);
@@ -497,6 +500,115 @@ const getPricePrediction = async (req, res) => {
         else if (!priceRise && !priceDrop) advice = 'قیمت نسبتاً پایدار است';
         res.json({ success: true, data: { productId: parseInt(id), currentPrice: basePrice, prediction, advice, trendDirection: trend > 0 ? 'up' : 'down' } });
     } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+// ========== محصولات مکمل سبد خرید ==========
+// بر اساس دسته‌بندی کالاهای داخل سبد، لوازم جانبی و مکمل پیشنهاد می‌دهد
+const COMPLEMENTARY_MAP = {
+    mobile: ['accessory'],
+    laptop: ['accessory', 'monitor'],
+    tablet: ['accessory'],
+    monitor: ['accessory', 'laptop'],
+    camera: ['accessory'],
+    console: ['accessory'],
+    tv: ['accessory'],
+    accessory: ['mobile', 'laptop'],
+    appliance: ['accessory']
+};
+
+const getComplementaryProducts = async (req, res) => {
+    try {
+        const { cartIds, limit = 6 } = req.query;
+
+        let products = await productsCollection.getAll();
+        products = applyExchangeRate(products);
+
+        const idList = (cartIds || '')
+            .split(',')
+            .map(n => parseInt(n, 10))
+            .filter(n => !isNaN(n));
+
+        if (idList.length === 0) {
+            return res.json({ success: true, data: [] });
+        }
+
+        const inCart = products.filter(p => idList.includes(p.id));
+        if (inCart.length === 0) {
+            return res.json({ success: true, data: [] });
+        }
+
+        // دسته‌بندی‌های مکملِ کالاهای داخل سبد
+        const wanted = new Set();
+        inCart.forEach(p => {
+            (COMPLEMENTARY_MAP[p.category] || ['accessory']).forEach(c => wanted.add(c));
+        });
+
+        const suggestions = products
+            .filter(p => !idList.includes(p.id) && wanted.has(p.category) && (p.stock || 0) > 0)
+            .sort((a, b) => {
+                // امتیاز بالاتر و تخفیف‌دار بودن اولویت دارد
+                const scoreA = (a.rating || 0) * 10 + (a.oldPrice && a.oldPrice > a.price ? 5 : 0);
+                const scoreB = (b.rating || 0) * 10 + (b.oldPrice && b.oldPrice > b.price ? 5 : 0);
+                return scoreB - scoreA;
+            })
+            .slice(0, parseInt(limit, 10));
+
+        res.json({ success: true, data: suggestions });
+    } catch (error) {
+        console.error('خطا در getComplementaryProducts:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+// ========== شمارنده بازدیدکننده زنده ==========
+// تعداد بازدیدکننده‌های فعال هر محصول را در حافظه نگه می‌دارد.
+// هر بازدید تا ۶۰ ثانیه معتبر است و پس از آن منقضی می‌شود.
+const LIVE_VIEW_TTL = 60 * 1000;
+const liveViews = new Map(); // productId -> Map<visitorKey, expiresAt>
+
+function pruneLiveViews(productId) {
+    const viewers = liveViews.get(productId);
+    if (!viewers) return 0;
+    const now = Date.now();
+    for (const [key, expiresAt] of viewers) {
+        if (expiresAt <= now) viewers.delete(key);
+    }
+    if (viewers.size === 0) liveViews.delete(productId);
+    return viewers.size;
+}
+
+// پاکسازی دوره‌ای تا حافظه رشد نکند
+const liveViewsCleanup = setInterval(() => {
+    for (const productId of Array.from(liveViews.keys())) {
+        pruneLiveViews(productId);
+    }
+}, LIVE_VIEW_TTL);
+if (typeof liveViewsCleanup.unref === 'function') liveViewsCleanup.unref();
+
+const trackLiveView = async (req, res) => {
+    try {
+        const productId = parseInt(req.body.productId, 10);
+        if (isNaN(productId)) {
+            return res.status(400).json({ success: false, error: 'شناسه محصول نامعتبر است' });
+        }
+
+        // شناسه تقریبی بازدیدکننده (بدون ذخیره اطلاعات شخصی)
+        const visitorKey =
+            (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+            req.ip ||
+            req.socket?.remoteAddress ||
+            'unknown';
+
+        if (!liveViews.has(productId)) liveViews.set(productId, new Map());
+        liveViews.get(productId).set(visitorKey, Date.now() + LIVE_VIEW_TTL);
+
+        const liveViewers = pruneLiveViews(productId);
+
+        res.json({ success: true, data: { productId, liveViewers } });
+    } catch (error) {
+        console.error('خطا در trackLiveView:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 };
