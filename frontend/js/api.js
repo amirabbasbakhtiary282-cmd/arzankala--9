@@ -325,10 +325,32 @@ API.logout = () => {
     window.location.href = 'index.html';
 };
 
+// ============================================================
+// 🎁 تخفیف ویژه کاربر — بر اساس وفاداری مشتری (تعداد سفارش‌های قبلی)
+// ============================================================
+// این تابع در صفحه محصول برای نمایش یک تخفیف اختصاصی به کاربران
+// ثبت‌نام‌کرده و وفادار استفاده می‌شود. اگر کاربر مهمان باشد یا
+// اطلاعاتی در دسترس نباشد، مقدار صفر برمی‌گردد (بدون بنر تخفیف).
+API.getUserDiscount = function() {
+    try {
+        const userRaw = localStorage.getItem('user');
+        if (!userRaw) return 0;
+        const user = JSON.parse(userRaw);
+        const totalOrders = (user && user.totalOrders) || 0;
+        if (totalOrders >= 10) return 15;
+        if (totalOrders >= 5) return 10;
+        if (totalOrders >= 1) return 5;
+        return 0;
+    } catch (e) {
+        return 0;
+    }
+};
+
 API.getProfile = async () => {
     const result = await apiRequest('/users/profile');
     return result.success ? result.data : null;
 };
+
 
 API.addToWishlist = async (productId) => {
     return await apiRequest('/users/wishlist', {

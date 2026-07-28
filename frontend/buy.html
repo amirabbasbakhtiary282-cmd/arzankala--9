@@ -56,7 +56,10 @@
                             <label><i class="fa fa-map-marker-alt me-1 text-success"></i> آدرس تحویل</label>
                             <textarea class="form-control" id="address" rows="2" placeholder="استان، شهر، خیابان، پلاک"></textarea>
                         </div>
+
+                        <div class="mb-3" id="buyTimeStatus"></div>
                     </div>
+
 
                     <!-- خلاصه سفارش -->
                     <div class="col-lg-5">
@@ -106,6 +109,8 @@
     <script src="./js/shop-cart.js" defer></script>
     <script src="./js/nav.js" defer></script>
     <script src="./js/compare.js" defer></script>
+    <script src="./js/installment.js" defer></script>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             let cart = JSON.parse(localStorage.getItem('cart')) || [];
