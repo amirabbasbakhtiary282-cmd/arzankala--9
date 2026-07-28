@@ -231,10 +231,61 @@ async function recalculateRatings(commentsCollection, productsCollection) {
 }
 
 // ------------------------------------------------------------
+// 🔄 همگام‌سازی محصولات — فقط محصولات جاافتاده اضافه می‌شوند
+// ------------------------------------------------------------
+// برخلاف seedProducts که فقط وقتی جدول خالی باشد داده وارد می‌کند،
+// این تابع در هر اجرا محصولات products.json را با دیتابیس مقایسه
+// می‌کند و فقط محصولاتی که از قلم افتاده‌اند را اضافه می‌کند.
+//
+// ✅ فقط محصولات missing را اضافه می‌کند
+// ✅ محصولات موجود را تغییر نمی‌دهد
+// ✅ چیزی حذف نمی‌کند
+// ✅ از MySQL فعلی استفاده می‌کند
+// ------------------------------------------------------------
+async function syncProducts(productsCollection) {
+    const products = loadProducts();
+
+    if (products.length === 0) {
+        console.log('⚠️ محصولی در products.json یافت نشد');
+        return 0;
+    }
+
+    console.log(`🔍 بررسی ${products.length} محصول از products.json برای همگام‌سازی...`);
+
+    let added = 0;
+    let skipped = 0;
+
+    for (const p of products) {
+        try {
+            const existing = await productsCollection.getById(p.id);
+            if (existing) {
+                skipped++;
+            } else {
+                await productsCollection.insert(p);
+                added++;
+                console.log(`  ➕ محصول #${p.id} «${p.name}» به دیتابیس اضافه شد`);
+            }
+        } catch (e) {
+            console.error(`  ❌ خطا در همگام‌سازی محصول ${p.id}: ${e.message}`);
+        }
+    }
+
+    if (added > 0) {
+        console.log(`✅ ${added} محصول جاافتاده به دیتابیس اضافه شد (${skipped} محصول از قبل موجود بود)`);
+    } else {
+        console.log(`✅ همه ${skipped} محصول از قبل در دیتابیس موجود هستند — چیزی برای اضافه کردن نیست`);
+    }
+
+    return added;
+}
+
+// ------------------------------------------------------------
 // 🤖 داده‌گذاری خودکار (از داخل server.js)
 // ------------------------------------------------------------
 // فقط وقتی جدول‌ها خالی باشند داده وارد می‌کند، بنابراین اجرای
 // مکرر آن روی Render هیچ داده‌ای را بازنویسی نمی‌کند.
+// همچنین syncProducts را همیشه اجرا می‌کند تا محصولات جدیدی که
+// ممکن است به products.json اضافه شده باشند، در دیتابیس هم بیایند.
 // ------------------------------------------------------------
 async function autoSeed(collections) {
     const { productsCollection, usersCollection, commentsCollection } = collections;
@@ -244,7 +295,9 @@ async function autoSeed(collections) {
     const commentCount = await commentsCollection.count();
 
     if (productCount > 0 && userCount > 0) {
-        console.log(`ℹ️ دیتابیس از قبل پر است (${productCount} محصول، ${userCount} کاربر) — داده‌گذاری لازم نیست`);
+        console.log(`ℹ️ دیتابیس از قبل پر است (${productCount} محصول، ${userCount} کاربر) — داده‌گذاری اولیه لازم نیست`);
+        // حتی اگر دیتابیس پر باشد، syncProducts را اجرا کن تا محصولات جاافتاده اضافه شوند
+        await syncProducts(productsCollection);
         return;
     }
 
@@ -255,6 +308,10 @@ async function autoSeed(collections) {
     if (commentCount === 0) await seedComments(commentsCollection, productsCollection);
 
     await recalculateRatings(commentsCollection, productsCollection);
+
+    // بعد از seed اولیه، syncProducts اجرا می‌شود تا اگر
+    // محصولی از قلم افتاده باشد، اضافه شود
+    await syncProducts(productsCollection);
 
     console.log('🎉 داده‌گذاری اولیه کامل شد');
 }
@@ -278,6 +335,7 @@ async function runCli() {
         await seedAdmin(db.usersCollection, { force });
         await seedComments(db.commentsCollection, db.productsCollection, { force });
         await recalculateRatings(db.commentsCollection, db.productsCollection);
+        await syncProducts(db.productsCollection);
 
         const counts = {
             products: await db.productsCollection.count(),
@@ -303,7 +361,7 @@ async function runCli() {
     }
 }
 
-module.exports = { autoSeed, seedProducts, seedAdmin, seedComments, recalculateRatings, loadProducts };
+module.exports = { autoSeed, seedProducts, seedAdmin, seedComments, recalculateRatings, loadProducts, syncProducts };
 
 // فقط وقتی مستقیماً اجرا شود (نه هنگام require از server.js)
 if (require.main === module) {
