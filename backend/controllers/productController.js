@@ -342,15 +342,19 @@ const createProduct = async (req, res) => {
         const rate = exchangeRateService.getCurrentRate();
         const body = { ...req.body };
 
-        if (!body.name || body.price === undefined || body.price === null) {
-            return res.status(400).json({ success: false, error: 'نام و قیمت محصول الزامی است' });
-        }
-
+        // قیمت می‌تواند تومانی (price) یا دلاری (priceUSD) داده شود
         if (body.priceUSD) {
             body.price = convertUsdToToman(body.priceUSD, rate);
         }
         if (body.oldPriceUSD) {
             body.oldPrice = convertUsdToToman(body.oldPriceUSD, rate);
+        }
+
+        if (!body.name || !String(body.name).trim()) {
+            return res.status(400).json({ success: false, error: 'نام محصول الزامی است' });
+        }
+        if (!body.price || body.price <= 0) {
+            return res.status(400).json({ success: false, error: 'قیمت محصول الزامی است' });
         }
 
         // شناسه توسط دیتابیس تعیین می‌شود تا از تداخل جلوگیری شود

@@ -31,8 +31,22 @@ const register = async (req, res) => {
             return res.status(400).json({ success: false, error: 'نام کاربری و رمز عبور الزامی است' });
         }
 
+        const cleanUsername = String(username).trim();
+
+        if (cleanUsername.length < 3 || cleanUsername.length > 60) {
+            return res.status(400).json({ success: false, error: 'نام کاربری باید بین ۳ تا ۶۰ کاراکتر باشد' });
+        }
+
+        if (String(password).length < 6) {
+            return res.status(400).json({ success: false, error: 'رمز عبور باید حداقل ۶ کاراکتر باشد' });
+        }
+
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
+            return res.status(400).json({ success: false, error: 'قالب ایمیل معتبر نیست' });
+        }
+
         // بررسی تکراری نبودن نام کاربری (ستون username در MySQL هم UNIQUE است)
-        const existingUser = await usersCollection.getByUsername(username);
+        const existingUser = await usersCollection.getByUsername(cleanUsername);
         if (existingUser) {
             return res.status(409).json({ success: false, error: 'این نام کاربری قبلاً ثبت شده است' });
         }
@@ -40,7 +54,7 @@ const register = async (req, res) => {
         const hashedPassword = await hashPassword(password);
 
         const userData = {
-            username,
+            username: cleanUsername,
             password: hashedPassword,
             fullname: fullname || '',
             email: email || '',
@@ -170,6 +184,10 @@ const changePassword = async (req, res) => {
 
         if (!currentPassword || !newPassword) {
             return res.status(400).json({ success: false, error: 'رمز عبور فعلی و جدید الزامی است' });
+        }
+
+        if (String(newPassword).length < 6) {
+            return res.status(400).json({ success: false, error: 'رمز عبور جدید باید حداقل ۶ کاراکتر باشد' });
         }
 
         const user = await usersCollection.getById(userId);

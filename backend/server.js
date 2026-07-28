@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 dotenv.config();
 
@@ -10,6 +12,74 @@ const PORT = process.env.PORT || 3000;
 
 // پشت پروکسی Render قرار داریم؛ برای گرفتن IP واقعی کاربر لازم است
 app.set('trust proxy', 1);
+
+// نسخه Express را در هدرها اعلام نکن
+app.disable('x-powered-by');
+
+// ============================================================
+// 🛡️ هدرهای امنیتی
+// ============================================================
+app.use(helmet({
+    // فرانت‌اند از CDN (بوت‌استرپ، Chart.js، Font Awesome) و تصاویر خارجی
+    // استفاده می‌کند، پس سیاست محتوا متناسب با آن تنظیم شده است.
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
+            styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com'],
+            fontSrc: ["'self'", 'data:', 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com'],
+            imgSrc: ["'self'", 'data:', 'https:'],
+            connectSrc: ["'self'", 'https:'],
+            objectSrc: ["'none'"],
+            frameAncestors: ["'none'"]
+        }
+    },
+    // اجازه بارگذاری تصاویر/فونت از دامنه دیگر (GitHub Pages → Render)
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true
+    }
+}));
+
+// ============================================================
+// 🚦 محدودیت نرخ درخواست
+// ============================================================
+// جلوگیری از حملات brute-force روی ورود/ثبت‌نام و سوءاستفاده از API
+// ============================================================
+const rateLimitOptions = {
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    // شمارش بر اساس IP واقعی کاربر پشت پروکسی Render
+    keyGenerator: (req) => req.ip
+};
+
+// محدودیت عمومی روی کل API
+const apiLimiter = rateLimit({
+    ...rateLimitOptions,
+    windowMs: 15 * 60 * 1000,           // ۱۵ دقیقه
+    limit: parseInt(process.env.RATE_LIMIT_API || '600', 10),
+    message: {
+        success: false,
+        error: 'تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً چند دقیقه دیگر تلاش کنید',
+        code: 'RATE_LIMIT_EXCEEDED'
+    }
+});
+
+// محدودیت سخت‌گیرانه روی ورود و ثبت‌نام
+const authLimiter = rateLimit({
+    ...rateLimitOptions,
+    windowMs: 15 * 60 * 1000,           // ۱۵ دقیقه
+    limit: parseInt(process.env.RATE_LIMIT_AUTH || '15', 10),
+    skipSuccessfulRequests: true,        // فقط تلاش‌های ناموفق شمرده می‌شوند
+    message: {
+        success: false,
+        error: 'تلاش‌های ناموفق بیش از حد مجاز. لطفاً ۱۵ دقیقه دیگر تلاش کنید',
+        code: 'TOO_MANY_ATTEMPTS'
+    }
+});
 
 // ============================================================
 // ✅ تنظیمات CORS
@@ -123,6 +193,13 @@ async function startServer() {
         await initializeDatabase();
 
         // ---------- مسیرهای API ----------
+        // محدودیت سخت روی ورود/ثبت‌نام (قبل از محدودیت عمومی)
+        app.use('/api/users/login', authLimiter);
+        app.use('/api/users/register', authLimiter);
+
+        // محدودیت عمومی روی کل API
+        app.use('/api', apiLimiter);
+
         app.use('/api/products', productRoutes);
         app.use('/api/users', userRoutes);
         app.use('/api/comments', commentRoutes);
