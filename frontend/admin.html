@@ -156,9 +156,24 @@
                 <div class="modal-header py-2"><h6 class="modal-title" id="productModalTitle">محصول جدید</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
                     <div class="row g-2">
-                        <div class="col-md-6"><label class="form-label text-muted small mb-0">نام محصول</label><input id="editName" class="form-control form-control-sm"></div>
-                        <div class="col-md-3"><label class="form-label text-muted small mb-0">قیمت (دلار)</label><input id="editPriceUSD" type="number" step="0.01" class="form-control form-control-sm"></div>
-                        <div class="col-md-3"><label class="form-label text-muted small mb-0">قیمت قدیم (دلار)</label><input id="editOldPriceUSD" type="number" step="0.01" class="form-control form-control-sm"></div>
+                        <div class="col-12"><label class="form-label text-muted small mb-0">نام محصول</label><input id="editName" class="form-control form-control-sm"></div>
+                        <div class="col-12">
+                            <div class="d-flex align-items-center gap-3 mt-1" style="font-size:.75rem;">
+                                <span class="text-muted">واحد قیمت:</span>
+                                <div class="form-check form-check-inline mb-0">
+                                    <input class="form-check-input" type="radio" name="priceMode" id="priceModeToman" value="toman" checked onchange="togglePriceMode()">
+                                    <label class="form-check-label text-white" for="priceModeToman">تومان</label>
+                                </div>
+                                <div class="form-check form-check-inline mb-0">
+                                    <input class="form-check-input" type="radio" name="priceMode" id="priceModeUsd" value="usd" onchange="togglePriceMode()">
+                                    <label class="form-check-label text-white" for="priceModeUsd">دلار (خودکار به تومان تبدیل می‌شود)</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3" id="tomanFields"><label class="form-label text-muted small mb-0">قیمت (تومان)</label><input id="editPrice" type="number" class="form-control form-control-sm"></div>
+                        <div class="col-md-3" id="tomanOldFields"><label class="form-label text-muted small mb-0">قیمت قدیم (تومان)</label><input id="editOldPrice" type="number" class="form-control form-control-sm"></div>
+                        <div class="col-md-3 d-none" id="usdFields"><label class="form-label text-muted small mb-0">قیمت (دلار)</label><input id="editPriceUSD" type="number" step="0.01" class="form-control form-control-sm"></div>
+                        <div class="col-md-3 d-none" id="usdOldFields"><label class="form-label text-muted small mb-0">قیمت قدیم (دلار)</label><input id="editOldPriceUSD" type="number" step="0.01" class="form-control form-control-sm"></div>
                         <div class="col-md-4"><label class="form-label text-muted small mb-0">دسته</label>
                             <select id="editCategory" class="form-select form-select-sm">
                                 <option value="mobile">موبایل</option><option value="laptop">لپ تاپ</option><option value="tablet">تبلت</option>
@@ -384,28 +399,57 @@
     }
 
     // ==================== PRODUCTS ====================
+    function togglePriceMode() {
+        var usd = document.getElementById('priceModeUsd').checked;
+        document.getElementById('tomanFields').classList.toggle('d-none', usd);
+        document.getElementById('tomanOldFields').classList.toggle('d-none', usd);
+        document.getElementById('usdFields').classList.toggle('d-none', !usd);
+        document.getElementById('usdOldFields').classList.toggle('d-none', !usd);
+    }
+
     function showAddProductModal() {
         editProductId = null;
         document.getElementById('productModalTitle').textContent = 'افزودن محصول جدید';
-        ['editName','editPriceUSD','editOldPriceUSD','editStock','editImage','editDescription'].forEach(function(id) {
+        ['editName','editPrice','editOldPrice','editPriceUSD','editOldPriceUSD','editStock','editImage','editDescription'].forEach(function(id) {
             var el = document.getElementById(id);
             if (el) el.value = '';
         });
         document.getElementById('editCategory').value = 'mobile';
+        document.getElementById('priceModeToman').checked = true;
+        togglePriceMode();
         new bootstrap.Modal(document.getElementById('productModal')).show();
     }
 
     async function saveProduct() {
+        var useUsd = document.getElementById('priceModeUsd').checked;
+
         var data = {
             name: document.getElementById('editName').value.trim(),
-            priceUSD: parseFloat(document.getElementById('editPriceUSD').value),
-            oldPriceUSD: parseFloat(document.getElementById('editOldPriceUSD').value) || null,
             category: document.getElementById('editCategory').value,
             stock: parseInt(document.getElementById('editStock').value) || 0,
             image: document.getElementById('editImage').value.trim() || 'default.jpg',
             description: document.getElementById('editDescription').value.trim()
         };
-        if (!data.name || !data.priceUSD) { notif('نام و قیمت اجباری است', 'error'); return; }
+
+        if (useUsd) {
+            // قیمت دلاری — سرور خودش با نرخ روز به تومان تبدیل می‌کند
+            var pu = parseFloat(document.getElementById('editPriceUSD').value);
+            var ou = parseFloat(document.getElementById('editOldPriceUSD').value);
+            if (!data.name || !pu || pu <= 0) { notif('نام و قیمت اجباری است', 'error'); return; }
+            data.priceUSD = pu;
+            data.oldPriceUSD = ou > 0 ? ou : null;
+        } else {
+            // قیمت تومانی — مستقیم ذخیره می‌شود
+            var pt = parseInt(document.getElementById('editPrice').value);
+            var ot = parseInt(document.getElementById('editOldPrice').value);
+            if (!data.name || !pt || pt <= 0) { notif('نام و قیمت اجباری است', 'error'); return; }
+            data.price = pt;
+            data.oldPrice = ot > 0 ? ot : null;
+            // پاک کردن قیمت دلاری تا سرور دوباره روی قیمت تومانی بازنویسی نکند
+            data.priceUSD = null;
+            data.oldPriceUSD = null;
+        }
+
         var endpoint = editProductId ? '/products/' + editProductId : '/products';
         var method = editProductId ? 'PUT' : 'POST';
         var result = await apiRequest(endpoint, { method: method, body: JSON.stringify(data) });
@@ -427,7 +471,7 @@
         if (!result || !result.success || !result.data) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-2">' + (result ? result.error : 'خطا') + '</td></tr>'; return; }
         if (result.data.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-2">محصولی نیست</td></tr>'; return; }
         tbody.innerHTML = result.data.map(function(p) {
-            return '<tr><td>' + p.id + '</td><td><img src="./img/' + p.image + '" style="width:32px;height:32px;object-fit:cover;border-radius:6px;" onerror="this.src=\'https://placehold.co/32\'"></td><td>' + esc(p.name) + '</td><td>' + (p.priceUSD || '---') + '$</td><td>' + p.category + '</td><td><span class="badge ' + (p.stock > 0 ? 'bg-success' : 'bg-danger') + '">' + p.stock + '</span></td><td><button class="btn btn-sm btn-outline-info py-0 px-1" onclick="showEditProduct(' + p.id + ')"><i class="fa fa-edit" style="font-size:.75rem;"></i></button> <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="deleteProduct(' + p.id + ')"><i class="fa fa-trash" style="font-size:.75rem;"></i></button></td></tr>';
+            return '<tr><td>' + p.id + '</td><td><img src="./img/' + p.image + '" style="width:32px;height:32px;object-fit:cover;border-radius:6px;" onerror="this.src=\'https://placehold.co/32\'"></td><td>' + esc(p.name) + '</td><td>' + (p.price ? p.price.toLocaleString('fa-IR') + ' ت' : '---') + (p.priceUSD ? ' <span class="text-muted" style="font-size:.7rem;">($' + p.priceUSD + ')</span>' : '') + '</td><td>' + p.category + '</td><td><span class="badge ' + (p.stock > 0 ? 'bg-success' : 'bg-danger') + '">' + p.stock + '</span></td><td><button class="btn btn-sm btn-outline-info py-0 px-1" onclick="showEditProduct(' + p.id + ')"><i class="fa fa-edit" style="font-size:.75rem;"></i></button> <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="deleteProduct(' + p.id + ')"><i class="fa fa-trash" style="font-size:.75rem;"></i></button></td></tr>';
         }).join('');
     }
 
@@ -439,6 +483,15 @@
         editProductId = id;
         document.getElementById('productModalTitle').textContent = 'ویرایش محصول';
         document.getElementById('editName').value = p.name;
+
+        // اگر محصول قیمت دلاری دارد همان حالت انتخاب می‌شود، وگرنه حالت تومانی
+        var hasUsd = !!p.priceUSD;
+        document.getElementById('priceModeUsd').checked = hasUsd;
+        document.getElementById('priceModeToman').checked = !hasUsd;
+        togglePriceMode();
+
+        document.getElementById('editPrice').value = p.price || '';
+        document.getElementById('editOldPrice').value = p.oldPrice || '';
         document.getElementById('editPriceUSD').value = p.priceUSD || '';
         document.getElementById('editOldPriceUSD').value = p.oldPriceUSD || '';
         document.getElementById('editCategory').value = p.category;

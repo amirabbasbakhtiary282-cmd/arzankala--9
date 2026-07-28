@@ -23,13 +23,6 @@ const generateToken = (userId, username, role) => {
     return jwt.sign({ id: userId, username, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 };
 
-const getNextUserId = async () => {
-    const users = await usersCollection.getAll();
-    const ids = users.map(u => parseInt(u.id)).filter(id => !isNaN(id));
-    const maxId = ids.length > 0 ? Math.max(...ids) : 0;
-    return maxId + 1;
-};
-
 const register = async (req, res) => {
     try {
         const { username, password, fullname, email, mobile, birthYear } = req.body;
@@ -38,18 +31,30 @@ const register = async (req, res) => {
             return res.status(400).json({ success: false, error: 'نام کاربری و رمز عبور الزامی است' });
         }
 
-        const users = await usersCollection.getAll();
-        const existingUser = users.find(u => u.username === username);
+        const cleanUsername = String(username).trim();
+
+        if (cleanUsername.length < 3 || cleanUsername.length > 60) {
+            return res.status(400).json({ success: false, error: 'نام کاربری باید بین ۳ تا ۶۰ کاراکتر باشد' });
+        }
+
+        if (String(password).length < 6) {
+            return res.status(400).json({ success: false, error: 'رمز عبور باید حداقل ۶ کاراکتر باشد' });
+        }
+
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
+            return res.status(400).json({ success: false, error: 'قالب ایمیل معتبر نیست' });
+        }
+
+        // بررسی تکراری نبودن نام کاربری (ستون username در MySQL هم UNIQUE است)
+        const existingUser = await usersCollection.getByUsername(cleanUsername);
         if (existingUser) {
             return res.status(409).json({ success: false, error: 'این نام کاربری قبلاً ثبت شده است' });
         }
 
         const hashedPassword = await hashPassword(password);
-        const newId = await getNextUserId();
 
-        const newUser = {
-            id: newId,
-            username,
+        const userData = {
+            username: cleanUsername,
             password: hashedPassword,
             fullname: fullname || '',
             email: email || '',
@@ -58,13 +63,26 @@ const register = async (req, res) => {
             role: 'user',
             isActive: true,
             createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
             addresses: [],
             wishlist: [],
+            searchHistory: [],
+            settings: {},
             totalOrders: 0,
             totalSpent: 0
         };
 
-        await usersCollection.insert(newUser);
+        let newUser;
+        try {
+            // درج امن در برابر درخواست‌های همزمان
+            newUser = await usersCollection.insertWithNextId(userData);
+        } catch (e) {
+            // اگر همزمان کاربر دیگری همین نام را ثبت کرده باشد
+            if (e && (e.code === 'ER_DUP_ENTRY' || e.errno === 1062)) {
+                return res.status(409).json({ success: false, error: 'این نام کاربری قبلاً ثبت شده است' });
+            }
+            throw e;
+        }
 
         const token = generateToken(newUser.id, newUser.username, newUser.role);
         const { password: _, ...userResponse } = newUser;
@@ -166,6 +184,10 @@ const changePassword = async (req, res) => {
 
         if (!currentPassword || !newPassword) {
             return res.status(400).json({ success: false, error: 'رمز عبور فعلی و جدید الزامی است' });
+        }
+
+        if (String(newPassword).length < 6) {
+            return res.status(400).json({ success: false, error: 'رمز عبور جدید باید حداقل ۶ کاراکتر باشد' });
         }
 
         const user = await usersCollection.getById(userId);
