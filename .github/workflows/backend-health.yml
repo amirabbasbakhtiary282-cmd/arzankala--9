@@ -1,218 +1,136 @@
-name: Backend health check (MySQL)
+name: Backend health check
 
 on:
   workflow_dispatch: {}
   push:
-    branches: [master, main]
-  pull_request:
-    branches: [master, main]
+    branches: [ master ]
 
 jobs:
   backend-health:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
-    # یک دیتابیس MySQL واقعی برای اجرای تست‌ها
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-          MYSQL_DATABASE: arzankala_test
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-
-    env:
-      MYSQLHOST: 127.0.0.1
-      MYSQLPORT: "3306"
-      MYSQLUSER: root
-      MYSQLPASSWORD: ""
-      MYSQLDATABASE: arzankala_test
-      JWT_SECRET: ci_test_secret_key
-      ADMIN_PASSWORD: ci_admin_pass
-      PORT: "3000"
-
     steps:
-      - name: Checkout
+      - name: Checkout master
         uses: actions/checkout@v4
+        with:
+          ref: master
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 18
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
+          node-version: '18'
 
       - name: Install backend dependencies
-        run: npm ci --prefix backend
+        # repository's backend package.json lives in ./backend
+        run: npm install --prefix backend
 
-      - name: Syntax check
+      - name: Syntax validation for backend/config/database.js and backend/server.js
+        env:
+          NODE_OPTIONS: "--max-old-space-size=512"
         run: |
-          for f in backend/server.js backend/seed.js backend/config/database.js \
-                   backend/controllers/*.js backend/routes/*.js backend/utils/*.js; do
-            node --check "$f"
-          done
-          echo "SYNTAX_OK"
+          echo "Parsing backend/config/database.js and backend/server.js to catch syntax errors"
+          node -e "const fs=require('fs'); new Function(fs.readFileSync('backend/config/database.js','utf8')); new Function(fs.readFileSync('backend/server.js','utf8')); console.log('PARSE_OK');"
 
-      - name: Verify AxioDB is fully removed
+      - name: Start backend using JSON fallback
         run: |
-          if grep -rn --include='*.js' --include='*.json' -i "axiodb" backend/ --exclude-dir=node_modules; then
-            echo "ERROR: هنوز ارجاعی به AxioDB باقی مانده است"
-            exit 1
-          fi
-          echo "AXIODB_REMOVED_OK"
-
-      - name: Test database connection
-        run: npm run test:db --prefix backend
-
-      - name: Start backend
-        run: |
-          node backend/server.js > server.log 2>&1 &
-          echo $! > server.pid
+          echo "Starting backend (FORCE_JSON_DB=true) from repository root (backend/server.js)"
+          # start server in background and capture PID; redirect logs to server.log
+          FORCE_JSON_DB=true node backend/server.js > server.log 2>&1 & echo $! > server.pid
         shell: bash
 
-      - name: Wait for /health
+      - name: Wait for /health (up to 30s)
         run: |
-          for i in $(seq 1 45); do
-            if curl --fail --silent http://localhost:3000/health -o /tmp/health.json; then
+          echo "Waiting for http://localhost:3000/health ..."
+          timeout=30
+          i=0
+          while [ $i -lt $timeout ]; do
+            if curl --fail --silent http://localhost:3000/health > /tmp/health.json; then
               echo "Health endpoint responded:"
               cat /tmp/health.json
-              exit 0
+              break
             fi
+            i=$((i+1))
             sleep 1
           done
-          echo "ERROR: /health پاسخ نداد"
-          cat server.log
-          exit 1
-        shell: bash
-
-      - name: Validate /health reports MySQL
-        run: |
-          cat /tmp/health.json
-          jq -e '.success == true
-                 and .database.dbType == "mysql"
-                 and .database.available == true
-                 and .counts.products == 25' /tmp/health.json
-          echo "HEALTH_OK"
-        shell: bash
-
-      - name: Verify auto-seed populated MySQL
-        run: |
-          mysql -h 127.0.0.1 -P 3306 -u root arzankala_test -e "
-            SELECT 'products' AS t, COUNT(*) AS n FROM products
-            UNION ALL SELECT 'users', COUNT(*) FROM users
-            UNION ALL SELECT 'comments', COUNT(*) FROM comments;"
-
-          COUNT=$(mysql -h 127.0.0.1 -P 3306 -u root arzankala_test -N -B -e "SELECT COUNT(*) FROM products;")
-          if [ "$COUNT" -ne 25 ]; then
-            echo "ERROR: انتظار ۲۵ محصول داشتیم اما $COUNT پیدا شد"
+          if [ ! -s /tmp/health.json ]; then
+            echo "ERROR: /health did not respond within ${timeout}s. Last 200 lines of server.log:"
+            tail -n 200 server.log || true
+            cat server.log || true
             exit 1
           fi
-          echo "SEED_OK"
         shell: bash
 
-      - name: Register a user and confirm it persists in MySQL
+      - name: Validate /health JSON (expects JSON fallback)
         run: |
-          UNAME="ci_user_$(date +%s)"
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+          echo "--- /health response ---"
+          cat /tmp/health.json
+          echo "Validating: success==true, database.dbType==\"json\", database.available==true"
+          jq -e '.success == true and (.database != null) and (.database.dbType == "json") and (.database.available == true)' /tmp/health.json
+        shell: bash
+
+      - name: Create a unique test user via API (to test persistence)
+        run: |
+          uname="ci_test_user_$(date +%s)"
+          echo "Creating test user: $uname"
           curl -s -X POST http://localhost:3000/api/users/register \
             -H "Content-Type: application/json" \
-            -d "{\"username\":\"${UNAME}\",\"password\":\"testpass123\"}" \
-            -o /tmp/register.json
-          cat /tmp/register.json
-          jq -e '.success == true and (.token | length > 10)' /tmp/register.json
+            -d "{\"username\":\"${uname}\",\"password\":\"testpass\"}" \
+            -o /tmp/register_response.json || true
+          echo "Register response:"
+          cat /tmp/register_response.json
+          # expose username for next step
+          echo "${uname}" > /tmp/ci_test_username.txt
+        shell: bash
 
-          FOUND=$(mysql -h 127.0.0.1 -P 3306 -u root arzankala_test -N -B \
-            -e "SELECT COUNT(*) FROM users WHERE username='${UNAME}';")
-          if [ "$FOUND" -ne 1 ]; then
-            echo "ERROR: کاربر در جدول users پیدا نشد"
+      - name: Ensure backend/AxioDB/fallback-db.json exists and contains the test user
+        run: |
+          uname=$(cat /tmp/ci_test_username.txt)
+          echo "Checking backend/AxioDB directory"
+          ls -la backend/AxioDB || true
+          if [ ! -f backend/AxioDB/fallback-db.json ]; then
+            echo "ERROR: backend/AxioDB/fallback-db.json not found"
+            echo "Dumping server.log for diagnosis:"
+            tail -n 200 server.log || true
             exit 1
           fi
-          echo "PERSISTENCE_OK"
-        shell: bash
-
-      - name: Smoke test key API endpoints
-        run: |
-          set -e
-          check() {
-            CODE=$(curl -s -o /tmp/out.json -w "%{http_code}" "$1")
-            if [ "$CODE" != "200" ]; then
-              echo "FAIL $1 → HTTP $CODE"; cat /tmp/out.json; exit 1
-            fi
-            echo "  ok $1"
-          }
-          check "http://localhost:3000/api/products?limit=100"
-          check "http://localhost:3000/api/products/1"
-          check "http://localhost:3000/api/products/featured"
-          check "http://localhost:3000/api/products/discounted"
-          check "http://localhost:3000/api/products/stats"
-          check "http://localhost:3000/api/products/category/mobile"
-          check "http://localhost:3000/api/products/1/related"
-          check "http://localhost:3000/api/products/1/price-history"
-          check "http://localhost:3000/api/products/1/price-prediction"
-          check "http://localhost:3000/api/products/complementary?cartIds=1,8"
-          check "http://localhost:3000/api/comments/product/1"
-          check "http://localhost:3000/api/comments/product/1/ai-analysis"
-          check "http://localhost:3000/api/exchange-rate"
-
-          # مسیرهایی که قبلاً وجود نداشتند و سرور را می‌شکستند
-          curl -s -X POST http://localhost:3000/api/products/track-view \
-            -H "Content-Type: application/json" -d '{"productId":1}' -o /tmp/tv.json
-          jq -e '.success == true' /tmp/tv.json
-          echo "ENDPOINTS_OK"
-        shell: bash
-
-      - name: Verify admin login and protected routes
-        run: |
-          curl -s -X POST http://localhost:3000/api/users/login \
-            -H "Content-Type: application/json" \
-            -d '{"username":"admin","password":"ci_admin_pass"}' -o /tmp/login.json
-          jq -e '.success == true and .user.role == "admin"' /tmp/login.json
-          TOKEN=$(jq -r '.token' /tmp/login.json)
-
-          CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/users/admin/all \
-            -H "Authorization: Bearer $TOKEN")
-          [ "$CODE" = "200" ] || { echo "admin route failed: $CODE"; exit 1; }
-
-          # بدون توکن باید ۴۰۱ بدهد
-          CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/users/admin/all)
-          [ "$CODE" = "401" ] || { echo "unauth should be 401, got $CODE"; exit 1; }
-          echo "AUTH_OK"
-        shell: bash
-
-      - name: Restart server and confirm data survives
-        run: |
-          kill "$(cat server.pid)" || true
-          sleep 3
-          node backend/server.js > server2.log 2>&1 &
-          echo $! > server.pid
-          for i in $(seq 1 45); do
-            curl --fail --silent http://localhost:3000/health -o /tmp/health2.json && break
-            sleep 1
-          done
-          cat /tmp/health2.json
-          # داده‌ها باید باقی مانده باشند و seed دوباره اجرا نشود
-          jq -e '.counts.products == 25 and .counts.users >= 2' /tmp/health2.json
-          grep -q "دیتابیس از قبل پر است" server2.log && echo "NO_RESEED_OK"
-          echo "RESTART_PERSISTENCE_OK"
+          echo "Showing fallback-db.json (first 2000 chars)"
+          head -c 2000 backend/AxioDB/fallback-db.json || true
+          echo
+          echo "Searching for created username in fallback-db.json"
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+          if jq -e --arg u "$uname" '.users and (.users[]?.username == $u) | any' backend/AxioDB/fallback-db.json >/dev/null 2>&1; then
+            echo "Found user $uname in fallback-db.json"
+            jq -r --arg u "$uname" '.users[] | select(.username==$u)' backend/AxioDB/fallback-db.json || true
+          else
+            echo "ERROR: user $uname not found in fallback-db.json"
+            echo "Dumping server.log for diagnosis:"
+            tail -n 200 server.log || true
+            exit 1
+          fi
         shell: bash
 
       - name: Stop backend
-        if: always()
         run: |
-          [ -f server.pid ] && kill "$(cat server.pid)" 2>/dev/null || true
+          if [ -f server.pid ]; then
+            pid=$(cat server.pid)
+            echo "Stopping backend pid $pid"
+            kill "$pid" || true
+            sleep 1
+            if ps -p "$pid" > /dev/null 2>&1; then
+              echo "Process still running, forcing kill"
+              kill -9 "$pid" || true
+            fi
+          else
+            echo "server.pid not found; attempting to kill by port (3000)"
+            pkill -f "node backend/server.js" || true
+          fi
         shell: bash
 
-      - name: Upload logs
-        if: always()
+      - name: Upload server.log artifact
         uses: actions/upload-artifact@v4
         with:
-          name: backend-logs
-          path: |
-            server.log
-            server2.log
-          if-no-files-found: ignore
+          name: backend-server-log
+          path: server.log

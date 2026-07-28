@@ -1,0 +1,218 @@
+name: Backend health check (MySQL)
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  backend-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # یک دیتابیس MySQL واقعی برای اجرای تست‌ها
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: arzankala_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      MYSQLHOST: 127.0.0.1
+      MYSQLPORT: "3306"
+      MYSQLUSER: root
+      MYSQLPASSWORD: ""
+      MYSQLDATABASE: arzankala_test
+      JWT_SECRET: ci_test_secret_key
+      ADMIN_PASSWORD: ci_admin_pass
+      PORT: "3000"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Syntax check
+        run: |
+          for f in backend/server.js backend/seed.js backend/config/database.js \
+                   backend/controllers/*.js backend/routes/*.js backend/utils/*.js; do
+            node --check "$f"
+          done
+          echo "SYNTAX_OK"
+
+      - name: Verify AxioDB is fully removed
+        run: |
+          if grep -rn --include='*.js' --include='*.json' -i "axiodb" backend/ --exclude-dir=node_modules; then
+            echo "ERROR: هنوز ارجاعی به AxioDB باقی مانده است"
+            exit 1
+          fi
+          echo "AXIODB_REMOVED_OK"
+
+      - name: Test database connection
+        run: npm run test:db --prefix backend
+
+      - name: Start backend
+        run: |
+          node backend/server.js > server.log 2>&1 &
+          echo $! > server.pid
+        shell: bash
+
+      - name: Wait for /health
+        run: |
+          for i in $(seq 1 45); do
+            if curl --fail --silent http://localhost:3000/health -o /tmp/health.json; then
+              echo "Health endpoint responded:"
+              cat /tmp/health.json
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "ERROR: /health پاسخ نداد"
+          cat server.log
+          exit 1
+        shell: bash
+
+      - name: Validate /health reports MySQL
+        run: |
+          cat /tmp/health.json
+          jq -e '.success == true
+                 and .database.dbType == "mysql"
+                 and .database.available == true
+                 and .counts.products == 25' /tmp/health.json
+          echo "HEALTH_OK"
+        shell: bash
+
+      - name: Verify auto-seed populated MySQL
+        run: |
+          mysql -h 127.0.0.1 -P 3306 -u root arzankala_test -e "
+            SELECT 'products' AS t, COUNT(*) AS n FROM products
+            UNION ALL SELECT 'users', COUNT(*) FROM users
+            UNION ALL SELECT 'comments', COUNT(*) FROM comments;"
+
+          COUNT=$(mysql -h 127.0.0.1 -P 3306 -u root arzankala_test -N -B -e "SELECT COUNT(*) FROM products;")
+          if [ "$COUNT" -ne 25 ]; then
+            echo "ERROR: انتظار ۲۵ محصول داشتیم اما $COUNT پیدا شد"
+            exit 1
+          fi
+          echo "SEED_OK"
+        shell: bash
+
+      - name: Register a user and confirm it persists in MySQL
+        run: |
+          UNAME="ci_user_$(date +%s)"
+          curl -s -X POST http://localhost:3000/api/users/register \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"${UNAME}\",\"password\":\"testpass123\"}" \
+            -o /tmp/register.json
+          cat /tmp/register.json
+          jq -e '.success == true and (.token | length > 10)' /tmp/register.json
+
+          FOUND=$(mysql -h 127.0.0.1 -P 3306 -u root arzankala_test -N -B \
+            -e "SELECT COUNT(*) FROM users WHERE username='${UNAME}';")
+          if [ "$FOUND" -ne 1 ]; then
+            echo "ERROR: کاربر در جدول users پیدا نشد"
+            exit 1
+          fi
+          echo "PERSISTENCE_OK"
+        shell: bash
+
+      - name: Smoke test key API endpoints
+        run: |
+          set -e
+          check() {
+            CODE=$(curl -s -o /tmp/out.json -w "%{http_code}" "$1")
+            if [ "$CODE" != "200" ]; then
+              echo "FAIL $1 → HTTP $CODE"; cat /tmp/out.json; exit 1
+            fi
+            echo "  ok $1"
+          }
+          check "http://localhost:3000/api/products?limit=100"
+          check "http://localhost:3000/api/products/1"
+          check "http://localhost:3000/api/products/featured"
+          check "http://localhost:3000/api/products/discounted"
+          check "http://localhost:3000/api/products/stats"
+          check "http://localhost:3000/api/products/category/mobile"
+          check "http://localhost:3000/api/products/1/related"
+          check "http://localhost:3000/api/products/1/price-history"
+          check "http://localhost:3000/api/products/1/price-prediction"
+          check "http://localhost:3000/api/products/complementary?cartIds=1,8"
+          check "http://localhost:3000/api/comments/product/1"
+          check "http://localhost:3000/api/comments/product/1/ai-analysis"
+          check "http://localhost:3000/api/exchange-rate"
+
+          # مسیرهایی که قبلاً وجود نداشتند و سرور را می‌شکستند
+          curl -s -X POST http://localhost:3000/api/products/track-view \
+            -H "Content-Type: application/json" -d '{"productId":1}' -o /tmp/tv.json
+          jq -e '.success == true' /tmp/tv.json
+          echo "ENDPOINTS_OK"
+        shell: bash
+
+      - name: Verify admin login and protected routes
+        run: |
+          curl -s -X POST http://localhost:3000/api/users/login \
+            -H "Content-Type: application/json" \
+            -d '{"username":"admin","password":"ci_admin_pass"}' -o /tmp/login.json
+          jq -e '.success == true and .user.role == "admin"' /tmp/login.json
+          TOKEN=$(jq -r '.token' /tmp/login.json)
+
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/users/admin/all \
+            -H "Authorization: Bearer $TOKEN")
+          [ "$CODE" = "200" ] || { echo "admin route failed: $CODE"; exit 1; }
+
+          # بدون توکن باید ۴۰۱ بدهد
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/users/admin/all)
+          [ "$CODE" = "401" ] || { echo "unauth should be 401, got $CODE"; exit 1; }
+          echo "AUTH_OK"
+        shell: bash
+
+      - name: Restart server and confirm data survives
+        run: |
+          kill "$(cat server.pid)" || true
+          sleep 3
+          node backend/server.js > server2.log 2>&1 &
+          echo $! > server.pid
+          for i in $(seq 1 45); do
+            curl --fail --silent http://localhost:3000/health -o /tmp/health2.json && break
+            sleep 1
+          done
+          cat /tmp/health2.json
+          # داده‌ها باید باقی مانده باشند و seed دوباره اجرا نشود
+          jq -e '.counts.products == 25 and .counts.users >= 2' /tmp/health2.json
+          grep -q "دیتابیس از قبل پر است" server2.log && echo "NO_RESEED_OK"
+          echo "RESTART_PERSISTENCE_OK"
+        shell: bash
+
+      - name: Stop backend
+        if: always()
+        run: |
+          [ -f server.pid ] && kill "$(cat server.pid)" 2>/dev/null || true
+        shell: bash
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-logs
+          path: |
+            server.log
+            server2.log
+          if-no-files-found: ignore
