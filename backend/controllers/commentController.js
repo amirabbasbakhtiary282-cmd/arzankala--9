@@ -94,6 +94,23 @@ const addComment = async (req, res) => {
             return res.status(400).json({ success: false, error: 'متن نظر باید حداقل ۵ کاراکتر باشد' });
         }
 
+        if (content.length > 2000) {
+            return res.status(400).json({ success: false, error: 'متن نظر نباید بیشتر از ۲۰۰۰ کاراکتر باشد' });
+        }
+
+        // ورودی‌های آرایه‌ای (pros/cons) باید فقط رشته باشند و محدود به تعداد و طول معقول
+        const sanitizeList = (list) => {
+            if (!Array.isArray(list)) return [];
+            return list
+                .filter(item => typeof item === 'string')
+                .map(item => item.trim().slice(0, 100))
+                .filter(item => item.length > 0)
+                .slice(0, 10);
+        };
+        const safePros = sanitizeList(pros);
+        const safeCons = sanitizeList(cons);
+        const safeTitle = typeof title === 'string' ? title.trim().slice(0, 150) : '';
+
         const product = await productsCollection.getById(parseInt(productId));
         if (!product) {
             return res.status(404).json({ success: false, error: 'محصول یافت نشد' });
@@ -107,10 +124,10 @@ const addComment = async (req, res) => {
             userId: String(userId),
             username: username,
             rating: parseInt(rating),
-            title: title || '',
+            title: safeTitle,
             content: content.trim(),
-            pros: pros || [],
-            cons: cons || [],
+            pros: safePros,
+            cons: safeCons,
             images: [],
             isApproved: false,
             isVerifiedPurchase: false,
@@ -118,6 +135,7 @@ const addComment = async (req, res) => {
             unhelpfulCount: 0,
             helpfulUsers: [],
             reply: { content: '', repliedBy: null, repliedAt: null },
+
             createdAt: now,
             updatedAt: now
         });

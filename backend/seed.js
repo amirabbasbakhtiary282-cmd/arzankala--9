@@ -14,7 +14,7 @@ const path = require('path');
 const fs = require('fs');
 
 // ------------------------------------------------------------
-// 📦 محصولات — از فایل products.json خوانده می‌شود (۲۵ محصول واقعی)
+// 📦 محصولات — از فایل products.json خوانده می‌شود (۴۵ محصول واقعی)
 // ------------------------------------------------------------
 function loadProducts() {
     const jsonPath = path.join(__dirname, 'products.json');

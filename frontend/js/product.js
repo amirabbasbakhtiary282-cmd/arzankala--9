@@ -5,7 +5,30 @@ let currentSort = 'newest';
 let galleryImages = [];
 let currentGalleryIndex = 0;
 
+// ============================================================
+// 🛡️ اجرای امن ویجت‌های مستقل صفحه محصول
+// ============================================================
+// هر ویجت (نظرات، سوالات، پیشنهادها و ...) نباید در صورت خطا کل
+// صفحه را از کار بیندازد؛ فقط همان بخش لاگ می‌شود و بقیه صفحه
+// به کار خودش ادامه می‌دهد.
+function safeSync(fn, label) {
+    try {
+        return fn();
+    } catch (e) {
+        console.error('[Product] خطا در ' + (label || 'ویجت') + ':', e);
+    }
+}
+
+async function safeAsync(fn, label) {
+    try {
+        return await fn();
+    } catch (e) {
+        console.error('[Product] خطا در ' + (label || 'ویجت') + ':', e);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async function () {
+
     const urlParams = new URLSearchParams(window.location.search);
     const productId = urlParams.get('id');
 
@@ -23,8 +46,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     
     try {
         await loadProduct(currentProductId);
-        await loadComments(currentProductId, 1, currentSort);
-        setupCommentForm(currentProductId);
+        await safeAsync(() => loadComments(currentProductId, 1, currentSort), 'loadComments');
+        safeSync(() => setupCommentForm(currentProductId), 'setupCommentForm');
     } catch (e) {
         console.error('Product load error:', e);
         if (skeleton) skeleton.style.display = 'none';
@@ -113,9 +136,10 @@ async function loadProduct(productId, retries) {
     if (compareWidgetSection) compareWidgetSection.style.display = 'block';
 
     displayBreadcrumb(product);
-    displayGallery(product);
-    displayProductInfo(product);
-    displaySpecs(product);
+    safeSync(() => displayGallery(product), 'displayGallery');
+    safeSync(() => displayProductInfo(product), 'displayProductInfo');
+    safeSync(() => displaySpecs(product), 'displaySpecs');
+
 
     let viewerEl = document.getElementById('viewerCount');
     if (viewerEl) viewerEl.textContent = Math.floor(Math.random() * 15) + 3;
@@ -127,7 +151,8 @@ async function loadProduct(productId, retries) {
                 body: JSON.stringify({ productId: currentProductId })
             });
             if (result && result.success && result.data) {
-                document.getElementById('viewerCount').textContent = result.data.liveViewers;
+                let el = document.getElementById('viewerCount');
+                if (el) el.textContent = result.data.liveViewers;
             }
         } catch(e) {}
     }
@@ -138,25 +163,27 @@ async function loadProduct(productId, retries) {
     if (product.price && window.API && window.API.trackProductPrice) {
         window.API.trackProductPrice(productId, product.price);
     }
-    await loadPricePrediction(productId);
-    await loadRelatedProducts(product);
-    await loadAIReviewAnalysis(productId);
+    await safeAsync(() => loadPricePrediction(productId), 'loadPricePrediction');
+    await safeAsync(() => loadRelatedProducts(product), 'loadRelatedProducts');
+    await safeAsync(() => loadAIReviewAnalysis(productId), 'loadAIReviewAnalysis');
 
     if (product.description) {
-        document.getElementById('productDescriptionBody').textContent = product.description;
+        let descBody = document.getElementById('productDescriptionBody');
+        if (descBody) descBody.textContent = product.description;
     }
 
-    checkWishlistStatus(productId);
+    safeAsync(() => checkWishlistStatus(productId), 'checkWishlistStatus');
 
-    displayFeatureCards(product);
-    loadPriceHistoryChart(productId);
-    loadQandA(productId);
-    loadRecentlyViewed();
-    loadSmartRecommendations(product);
-    displayCompareWidget(product);
-    displaySellerInfo(product);
-    displayDeliveryInfo();
+    safeSync(() => displayFeatureCards(product), 'displayFeatureCards');
+    safeSync(() => loadPriceHistoryChart(productId), 'loadPriceHistoryChart');
+    safeSync(() => loadQandA(productId), 'loadQandA');
+    safeSync(() => loadRecentlyViewed(), 'loadRecentlyViewed');
+    safeAsync(() => loadSmartRecommendations(product), 'loadSmartRecommendations');
+    safeSync(() => displayCompareWidget(product), 'displayCompareWidget');
+    safeSync(() => displaySellerInfo(product), 'displaySellerInfo');
+    safeSync(() => displayDeliveryInfo(), 'displayDeliveryInfo');
 }
+
 
 function displayBreadcrumb(product) {
     const catEl = document.getElementById('breadcrumbCategory');
@@ -378,7 +405,7 @@ function displayProductInfo(product) {
     if (buyBtn) {
         buyBtn.onclick = function() {
             addToCart({ id: product.id, name: product.name, price: product.price, image: product.image });
-            window.location.href = 'cart.html';
+            window.location.href = 'buy.html';
         };
     }
 
@@ -485,17 +512,18 @@ async function loadAIReviewAnalysis(productId) {
 
         if (analysis.pros && analysis.pros.length > 0) {
             prosContainer.innerHTML = '<div class="pros-cons-title text-success small fw-bold mb-1"><i class="fa fa-plus-circle ms-1"></i> نقاط قوت</div>' +
-                analysis.pros.map(p => `<span class="pros-cons-tag pros-tag"><i class="fa fa-check ms-1"></i>${p.text} <small class="text-muted">(${p.count})</small></span>`).join('');
+                analysis.pros.map(p => `<span class="pros-cons-tag pros-tag"><i class="fa fa-check ms-1"></i>${escapeHtml(p.text)} <small class="text-muted">(${p.count})</small></span>`).join('');
         } else {
             prosContainer.innerHTML = '<div class="pros-cons-title text-success small fw-bold mb-1"><i class="fa fa-plus-circle ms-1"></i> نقاط قوت</div><span class="text-muted small">موردی یافت نشد</span>';
         }
 
         if (analysis.cons && analysis.cons.length > 0) {
             consContainer.innerHTML = '<div class="pros-cons-title text-danger small fw-bold mb-1"><i class="fa fa-minus-circle ms-1"></i> نقاط ضعف</div>' +
-                analysis.cons.map(c => `<span class="pros-cons-tag cons-tag"><i class="fa fa-times ms-1"></i>${c.text} <small class="text-muted">(${c.count})</small></span>`).join('');
+                analysis.cons.map(c => `<span class="pros-cons-tag cons-tag"><i class="fa fa-times ms-1"></i>${escapeHtml(c.text)} <small class="text-muted">(${c.count})</small></span>`).join('');
         } else {
             consContainer.innerHTML = '<div class="pros-cons-title text-danger small fw-bold mb-1"><i class="fa fa-minus-circle ms-1"></i> نقاط ضعف</div><span class="text-muted small">موردی یافت نشد</span>';
         }
+
 
         const ratioEl = document.getElementById('aiProsConsRatio');
         if (ratioEl) {
@@ -796,7 +824,7 @@ window.openAskQuestionModal = function() {
     document.body.appendChild(modal);
     modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
 
-    document.getElementById('closeAskQuestion').addEventListener('click', function() { modal.remove(); });
+    document.getElementById('closeAskModal').addEventListener('click', function() { modal.remove(); });
     document.getElementById('cancelAskQuestion').addEventListener('click', function() { modal.remove(); });
 
     document.getElementById('submitAskQuestion').addEventListener('click', function() {
@@ -1185,11 +1213,11 @@ function displayCommentsList(comments, page) {
     container.innerHTML = comments.map(function (comment) {
         let prosHtml = '';
         if (comment.pros && comment.pros.length > 0) {
-            prosHtml = '<div class="comment-pros text-success small mt-2"><i class="fa fa-check-circle ms-1"></i> نقاط قوت: ' + comment.pros.join('، ') + '</div>';
+            prosHtml = '<div class="comment-pros text-success small mt-2"><i class="fa fa-check-circle ms-1"></i> نقاط قوت: ' + comment.pros.map(escapeHtml).join('، ') + '</div>';
         }
         let consHtml = '';
         if (comment.cons && comment.cons.length > 0) {
-            consHtml = '<div class="comment-cons text-danger small"><i class="fa fa-times-circle ms-1"></i> نقاط ضعف: ' + comment.cons.join('، ') + '</div>';
+            consHtml = '<div class="comment-cons text-danger small"><i class="fa fa-times-circle ms-1"></i> نقاط ضعف: ' + comment.cons.map(escapeHtml).join('، ') + '</div>';
         }
         let aiHtml = '';
         if (comment.aiAnalysis) {
