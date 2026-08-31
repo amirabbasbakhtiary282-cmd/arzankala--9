@@ -1,0 +1,6 @@
+{
+  "name": "Arzankala",
+  "description": "فروشگاه اینترنتی ارزان‌کالا - خرید انواع موبایل، لپتاپ، تبلت، لوازم جانبی و لوازم خانگی با بهترین قیمت و ارسال سریع",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

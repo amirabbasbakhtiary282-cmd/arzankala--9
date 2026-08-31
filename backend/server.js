@@ -20,28 +20,10 @@ app.disable('x-powered-by');
 // 🛡️ هدرهای امنیتی
 // ============================================================
 app.use(helmet({
-    // فرانت‌اند از CDN (بوت‌استرپ، Chart.js، Font Awesome) و تصاویر خارجی
-    // استفاده می‌کند، پس سیاست محتوا متناسب با آن تنظیم شده است.
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
-            styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com'],
-            fontSrc: ["'self'", 'data:', 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com'],
-            imgSrc: ["'self'", 'data:', 'https:'],
-            connectSrc: ["'self'", 'https:'],
-            objectSrc: ["'none'"],
-            frameAncestors: ["'none'"]
-        }
-    },
-    // اجازه بارگذاری تصاویر/فونت از دامنه دیگر (GitHub Pages → Render)
+    frameguard: false,
+    contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: 'cross-origin' },
-    hsts: {
-        maxAge: 31536000,
-        includeSubDomains: true,
-        preload: true
-    }
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 
 // ============================================================

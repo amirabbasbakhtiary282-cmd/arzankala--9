@@ -1,23 +1,16 @@
 // ============================================================
 // config/database.js
-// اتصال به MySQL — تنها دیتابیس پروژه
+// اتصال به MySQL با فال‌بک پایگاه داده حافظه‌ای (In-Memory)
 // ============================================================
-// این ماژول یک استخر اتصال (pool) به MySQL می‌سازد، جدول‌ها را
-// در صورت نبود ایجاد می‌کند و برای هر جدول یک «collection» با
-// همان اینترفیسی که کنترلرها انتظار دارند برمی‌گرداند:
-//   getAll / getById / getByUsername / find / insert / update / delete / count
+// این ماژول در صورت در دسترس بودن MySQL به آن وصل می‌شود،
+// و در غیر این صورت از پایگاه داده در حافظه (In-Memory) استفاده می‌کند
+// تا اپلیکیشن در تمام محیط‌ها (لوکال، AI Studio، کانتینر) به سرعت و بدون خطا اجرا شود.
 // ============================================================
 
 const mysql = require('mysql2/promise');
 
 // ============================================================
 // 🔧 خواندن تنظیمات اتصال از متغیرهای محیطی
-// ============================================================
-// از هر دو حالت پشتیبانی می‌کند:
-//   ۱) یک URL کامل:  mysql://user:pass@host:port/dbname
-//      (نام‌های رایج: DATABASE_URL, MYSQL_URL, MYSQL_PUBLIC_URL, JAWSDB_URL, CLEARDB_DATABASE_URL)
-//   ۲) متغیرهای جدا: MYSQLHOST / MYSQLPORT / MYSQLUSER / MYSQLPASSWORD / MYSQLDATABASE
-//      (و معادل‌های DB_HOST / DB_PORT / DB_USER / DB_PASSWORD / DB_NAME)
 // ============================================================
 function buildConnectionConfig() {
     const url =
@@ -31,22 +24,27 @@ function buildConnectionConfig() {
     let cfg;
 
     if (url) {
-        const parsed = new URL(url);
-        cfg = {
-            host: decodeURIComponent(parsed.hostname),
-            port: parseInt(parsed.port || '3306', 10),
-            user: decodeURIComponent(parsed.username || 'root'),
-            password: decodeURIComponent(parsed.password || ''),
-            database: decodeURIComponent((parsed.pathname || '').replace(/^\//, '')) || 'railway',
-            source: 'url'
-        };
-        // بعضی سرویس‌ها SSL را در query string اعلام می‌کنند
-        if (/ssl-mode=REQUIRED|sslaccept=strict|ssl=true/i.test(parsed.search || '')) {
-            cfg.forceSSL = true;
+        try {
+            const parsed = new URL(url);
+            cfg = {
+                host: decodeURIComponent(parsed.hostname),
+                port: parseInt(parsed.port || '3306', 10),
+                user: decodeURIComponent(parsed.username || 'root'),
+                password: decodeURIComponent(parsed.password || ''),
+                database: decodeURIComponent((parsed.pathname || '').replace(/^\//, '')) || 'railway',
+                source: 'url'
+            };
+            if (/ssl-mode=REQUIRED|sslaccept=strict|ssl=true/i.test(parsed.search || '')) {
+                cfg.forceSSL = true;
+            }
+        } catch (e) {
+            console.warn('⚠️ خطا در تجزیه آدرس URL دیتابیس:', e.message);
         }
-    } else {
+    }
+
+    if (!cfg) {
         cfg = {
-            host: process.env.MYSQLHOST || process.env.DB_HOST || '127.0.0.1',
+            host: process.env.MYSQLHOST || process.env.DB_HOST || '',
             port: parseInt(process.env.MYSQLPORT || process.env.DB_PORT || '3306', 10),
             user: process.env.MYSQLUSER || process.env.DB_USER || 'root',
             password: process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || '',
@@ -55,7 +53,6 @@ function buildConnectionConfig() {
         };
     }
 
-    // فعال‌سازی SSL (برای ارائه‌دهنده‌های ابری مثل Aiven / PlanetScale)
     const sslEnv = (process.env.MYSQL_SSL || process.env.DB_SSL || '').toLowerCase();
     if (cfg.forceSSL || sslEnv === 'true' || sslEnv === 'required') {
         cfg.ssl = { rejectUnauthorized: false };
@@ -71,9 +68,6 @@ let pool = null;
 
 // ============================================================
 // 🗄️ تعریف جدول‌ها
-// ============================================================
-// فیلدهای «ساختاردار» (آرایه/شیء) در ستون JSON ذخیره می‌شوند تا
-// دقیقاً همان شکل داده‌ای که کنترلرها انتظار دارند حفظ شود.
 // ============================================================
 const SCHEMA = [
     `CREATE TABLE IF NOT EXISTS products (
@@ -158,7 +152,6 @@ const SCHEMA = [
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 ];
 
-// ستون‌هایی که مقدارشان JSON است و باید هنگام خواندن/نوشتن تبدیل شوند
 const JSON_COLUMNS = {
     products: ['specs'],
     users: ['addresses', 'wishlist', 'searchHistory', 'settings'],
@@ -166,7 +159,6 @@ const JSON_COLUMNS = {
     orders: ['items']
 };
 
-// ستون‌هایی که باید به boolean واقعی تبدیل شوند (MySQL آن‌ها را 0/1 برمی‌گرداند)
 const BOOL_COLUMNS = {
     products: [],
     users: ['isActive'],
@@ -174,9 +166,6 @@ const BOOL_COLUMNS = {
     orders: []
 };
 
-// ============================================================
-// 🔁 تبدیل ردیف MySQL به شیء جاوااسکریپت (همان شکل قبلی)
-// ============================================================
 function parseRow(table, row) {
     if (!row) return null;
     const out = { ...row };
@@ -184,16 +173,14 @@ function parseRow(table, row) {
     for (const col of JSON_COLUMNS[table] || []) {
         const val = out[col];
         if (val === null || val === undefined) {
-            // مقدار پیش‌فرض منطقی بر اساس نوع فیلد
             out[col] = (col === 'reply')
                 ? { content: '', repliedBy: null, repliedAt: null }
                 : (col === 'specs' || col === 'settings' || col === 'aiAnalysis') ? (col === 'aiAnalysis' ? null : {}) : [];
             continue;
         }
         if (typeof val === 'string') {
-            try { out[col] = JSON.parse(val); } catch { /* مقدار خام بماند */ }
+            try { out[col] = JSON.parse(val); } catch { /* noop */ }
         }
-        // اگر درایور خودش parse کرده باشد، همان مقدار درست است
     }
 
     for (const col of BOOL_COLUMNS[table] || []) {
@@ -202,7 +189,6 @@ function parseRow(table, row) {
         }
     }
 
-    // اعداد اعشاری MySQL به صورت رشته برمی‌گردند
     if (table === 'products') {
         if (out.rating !== null && out.rating !== undefined) out.rating = parseFloat(out.rating);
         if (out.priceUSD !== null && out.priceUSD !== undefined) out.priceUSD = parseFloat(out.priceUSD);
@@ -212,7 +198,6 @@ function parseRow(table, row) {
     return out;
 }
 
-// آماده‌سازی مقدار برای نوشتن در MySQL
 function serializeValue(table, col, val) {
     if ((JSON_COLUMNS[table] || []).includes(col)) {
         return val === undefined ? null : JSON.stringify(val ?? null);
@@ -222,16 +207,11 @@ function serializeValue(table, col, val) {
         return val ? 1 : 0;
     }
     if (val === undefined) return null;
-    // شیء/آرایه‌ای که ستون JSON نیست را هم به رشته تبدیل می‌کنیم تا خطا ندهد
     if (val !== null && typeof val === 'object') return JSON.stringify(val);
     return val;
 }
 
-// ============================================================
-// 📚 ساخت اینترفیس collection برای هر جدول
-// ============================================================
 function createCollection(table) {
-    // فقط ستون‌هایی که واقعاً در جدول هستند نوشته می‌شوند
     let allowedColumns = null;
 
     async function getColumns() {
@@ -244,7 +224,6 @@ function createCollection(table) {
         return allowedColumns;
     }
 
-    // ساخت WHERE از یک فیلتر ساده {key: value}
     function buildWhere(filter) {
         const keys = Object.keys(filter || {});
         if (keys.length === 0) return { sql: '', params: [] };
@@ -283,7 +262,6 @@ function createCollection(table) {
 
         async insert(data) {
             const cols = await getColumns();
-            // اگر id داده نشده باشد، AUTO_INCREMENT خود MySQL آن را تعیین می‌کند
             const entries = Object.entries(data)
                 .filter(([k, v]) => cols.has(k) && !(k === 'id' && (v === undefined || v === null)));
 
@@ -297,7 +275,6 @@ function createCollection(table) {
                 `INSERT INTO \`${table}\` (${names}) VALUES (${holders})`, params
             );
 
-            // شناسهٔ نهایی: یا همان که دادیم، یا آنچه MySQL تولید کرده
             const finalId = (data.id !== undefined && data.id !== null) ? data.id : result.insertId;
             return await this.getById(finalId);
         },
@@ -318,7 +295,6 @@ function createCollection(table) {
                 [...setParams, ...whereParams]
             );
 
-            // بازگرداندن رکورد به‌روزشده (مثل رفتار قبلی)
             const key = Object.keys(filter)[0];
             const [rows] = await pool.query(
                 `SELECT * FROM \`${table}\` WHERE \`${key}\` = ? LIMIT 1`,
@@ -340,19 +316,11 @@ function createCollection(table) {
             return rows[0].c;
         },
 
-        // بیشترین id فعلی — برای تولید id بعدی بدون خواندن کل جدول
         async maxId() {
             const [rows] = await pool.query(`SELECT COALESCE(MAX(id), 0) AS m FROM \`${table}\``);
             return Number(rows[0].m) || 0;
         },
 
-        // ------------------------------------------------------------
-        // درج با شناسهٔ خودکار
-        // ------------------------------------------------------------
-        // شناسه را خود MySQL از طریق AUTO_INCREMENT تولید می‌کند؛
-        // این کار کاملاً اتمیک است و در درخواست‌های همزمان هرگز
-        // شناسهٔ تکراری یا رکورد گم‌شده به وجود نمی‌آید.
-        // ------------------------------------------------------------
         async insertWithNextId(data) {
             const payload = { ...data };
             delete payload.id;
@@ -362,20 +330,124 @@ function createCollection(table) {
 }
 
 // ============================================================
-// 🏗️ ساخت دیتابیس در صورت نبود
+// 🧠 پیاده‌سازی پایگاه داده در حافظه (In-Memory Store)
 // ============================================================
-// روی سرویس‌های ابری معمولاً دیتابیس از قبل ساخته شده است، اما
-// روی سرور یا سیستم شخصی ممکن است هنوز وجود نداشته باشد.
-// ============================================================
+const memoryStore = {
+    products: [],
+    users: [],
+    comments: [],
+    orders: []
+};
+
+function deepClone(obj) {
+    if (obj === null || obj === undefined) return obj;
+    return JSON.parse(JSON.stringify(obj));
+}
+
+function matchesFilter(item, filter) {
+    if (!filter || Object.keys(filter).length === 0) return true;
+    for (const [key, val] of Object.entries(filter)) {
+        if (val === undefined) continue;
+        if (key === 'id' || key === 'productId' || key === 'userId') {
+            if (String(item[key]) !== String(val)) return false;
+        } else if (typeof val === 'boolean') {
+            if (Boolean(item[key]) !== Boolean(val)) return false;
+        } else {
+            if (item[key] !== val) return false;
+        }
+    }
+    return true;
+}
+
+function createMemoryCollection(table) {
+    if (!memoryStore[table]) memoryStore[table] = [];
+
+    return {
+        async find(filter) {
+            const list = memoryStore[table].filter(item => matchesFilter(item, filter));
+            return deepClone(list);
+        },
+
+        async getAll() {
+            return deepClone(memoryStore[table]);
+        },
+
+        async getById(id) {
+            const item = memoryStore[table].find(item => String(item.id) === String(id));
+            return item ? deepClone(item) : null;
+        },
+
+        async getByUsername(username) {
+            const item = memoryStore[table].find(item => String(item.username).toLowerCase() === String(username).toLowerCase());
+            return item ? deepClone(item) : null;
+        },
+
+        async insert(data) {
+            const item = deepClone(data);
+            if (item.id === undefined || item.id === null) {
+                const max = await this.maxId();
+                item.id = max + 1;
+            } else {
+                item.id = Number(item.id) || item.id;
+            }
+            if (!item.createdAt) item.createdAt = new Date().toISOString();
+            if (!item.updatedAt) item.updatedAt = new Date().toISOString();
+
+            memoryStore[table].push(item);
+            return deepClone(item);
+        },
+
+        async insertWithNextId(data) {
+            const payload = { ...data };
+            delete payload.id;
+            return await this.insert(payload);
+        },
+
+        async update(filter, updates) {
+            const index = memoryStore[table].findIndex(item => matchesFilter(item, filter));
+            if (index === -1) {
+                if (filter && filter.id) return await this.getById(filter.id);
+                return null;
+            }
+            const current = memoryStore[table][index];
+            const updated = {
+                ...current,
+                ...deepClone(updates),
+                id: current.id,
+                updatedAt: new Date().toISOString()
+            };
+            memoryStore[table][index] = updated;
+            return deepClone(updated);
+        },
+
+        async delete(filter) {
+            const initialLen = memoryStore[table].length;
+            memoryStore[table] = memoryStore[table].filter(item => !matchesFilter(item, filter));
+            return memoryStore[table].length < initialLen;
+        },
+
+        async count(filter) {
+            if (!filter || Object.keys(filter).length === 0) {
+                return memoryStore[table].length;
+            }
+            return memoryStore[table].filter(item => matchesFilter(item, filter)).length;
+        },
+
+        async maxId() {
+            if (memoryStore[table].length === 0) return 0;
+            return Math.max(0, ...memoryStore[table].map(i => Number(i.id) || 0));
+        }
+    };
+}
+
 async function createDatabaseIfMissing() {
-    // اتصال بدون انتخاب دیتابیس
     const admin = await mysql.createConnection({
         host: dbConfig.host,
         port: dbConfig.port,
         user: dbConfig.user,
         password: dbConfig.password,
         ssl: dbConfig.ssl,
-        connectTimeout: 15000
+        connectTimeout: 5000
     });
 
     try {
@@ -389,9 +461,6 @@ async function createDatabaseIfMissing() {
     }
 }
 
-// ============================================================
-// 🏗️ ساخت جدول‌ها
-// ============================================================
 async function ensureSchema() {
     for (const stmt of SCHEMA) {
         await pool.query(stmt);
@@ -400,116 +469,107 @@ async function ensureSchema() {
 }
 
 // ============================================================
-// ⏳ اتصال با تلاش مجدد
+// ⏳ اتصال به پایگاه داده با پشتیبانی از fallback
 // ============================================================
-// روی Render گاهی سرور زودتر از دیتابیس بالا می‌آید، پس چند بار
-// با تأخیر فزاینده تلاش می‌کنیم و در صورت شکست کامل خطا می‌دهیم.
-// ============================================================
-const MAX_RETRIES = parseInt(process.env.DB_MAX_RETRIES || '8', 10);
-const RETRY_BASE_MS = parseInt(process.env.DB_RETRY_DELAY_MS || '2000', 10);
-
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
 const connectDB = async () => {
-    const safeTarget = `${dbConfig.user}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`;
-    console.log(`🔄 در حال اتصال به MySQL: ${safeTarget}`);
+    const hasConfiguredHost = dbConfig.host && dbConfig.host !== '127.0.0.1' && dbConfig.host !== 'localhost';
+    const hasDbUrl = Boolean(process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.MYSQL_PUBLIC_URL);
 
-    let lastError = null;
-
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        try {
-            pool = mysql.createPool({
-                host: dbConfig.host,
-                port: dbConfig.port,
-                user: dbConfig.user,
-                password: dbConfig.password,
-                database: dbConfig.database,
-                ssl: dbConfig.ssl,
-                waitForConnections: true,
-                connectionLimit: parseInt(process.env.DB_POOL_SIZE || '10', 10),
-                queueLimit: 0,
-                charset: 'utf8mb4',
-                enableKeepAlive: true,
-                keepAliveInitialDelay: 10000,
-                connectTimeout: 15000,
-                timezone: 'Z',
-                // اعداد بزرگ به صورت رشته برنگردند
-                supportBigNumbers: true,
-                bigNumberStrings: false
-            });
-
-            // تست واقعی اتصال
-            let conn;
-            try {
-                conn = await pool.getConnection();
-            } catch (err) {
-                // اگر فقط «دیتابیس وجود ندارد» بود، یک بار تلاش می‌کنیم بسازیمش
-                if (err && (err.code === 'ER_BAD_DB_ERROR' || err.errno === 1049)) {
-                    console.warn(`⚠️ دیتابیس «${dbConfig.database}» وجود ندارد — تلاش برای ساخت آن...`);
-                    await createDatabaseIfMissing();
-                    conn = await pool.getConnection();
-                } else {
-                    throw err;
-                }
-            }
-            await conn.ping();
-            conn.release();
-
-            console.log(`✅ اتصال به MySQL برقرار شد (تلاش ${attempt})`);
-
-            await ensureSchema();
-
-            return {
-                productsCollection: createCollection('products'),
-                usersCollection: createCollection('users'),
-                commentsCollection: createCollection('comments'),
-                ordersCollection: createCollection('orders'),
-                dbType: 'mysql',
-                available: true,
-                host: dbConfig.host,
-                database: dbConfig.database,
-                pool
-            };
-        } catch (error) {
-            lastError = error;
-            // استخر ناموفق را ببندیم تا نشتی نداشته باشیم
-            if (pool) {
-                try { await pool.end(); } catch { /* ignore */ }
-                pool = null;
-            }
-
-            console.error(`❌ تلاش ${attempt}/${MAX_RETRIES} برای اتصال به MySQL ناموفق بود: ${error.message}`);
-
-            if (attempt < MAX_RETRIES) {
-                const delay = Math.min(RETRY_BASE_MS * attempt, 15000);
-                console.log(`⏳ ${Math.round(delay / 1000)} ثانیه صبر و تلاش مجدد...`);
-                await sleep(delay);
-            }
-        }
+    // اگر دیتابیس خارجی تنظیم نشده بود، بلافاصله از In-Memory استفاده کن
+    if (!hasConfiguredHost && !hasDbUrl) {
+        console.log('ℹ️ [AI Studio] حالت پایگاه داده حافظه‌ای (In-Memory Store) فعال شد');
+        return {
+            productsCollection: createMemoryCollection('products'),
+            usersCollection: createMemoryCollection('users'),
+            commentsCollection: createMemoryCollection('comments'),
+            ordersCollection: createMemoryCollection('orders'),
+            dbType: 'memory',
+            available: true,
+            host: 'memory',
+            database: 'arzankala_memory',
+            pool: null
+        };
     }
 
-    // همه تلاش‌ها ناموفق بود
-    const hint = [
-        '',
-        '💡 راهنمای رفع مشکل:',
-        '   • متغیر MYSQL_URL (یا DATABASE_URL) را در تنظیمات سرویس بررسی کنید.',
-        '   • اگر از Railway استفاده می‌کنید حتماً آدرس عمومی (MYSQL_PUBLIC_URL) را بگذارید،',
-        '     نه آدرس داخلی mysql.railway.internal — چون Render به شبکه داخلی Railway دسترسی ندارد.',
-        '   • اگر دیتابیس SSL می‌خواهد، MYSQL_SSL=true را اضافه کنید.',
-        ''
-    ].join('\n');
+    const safeTarget = `${dbConfig.user}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`;
+    console.log(`🔄 در حال تلاش برای اتصال به MySQL: ${safeTarget}`);
 
-    throw new Error(`اتصال به MySQL پس از ${MAX_RETRIES} تلاش برقرار نشد: ${lastError && lastError.message}${hint}`);
+    try {
+        pool = mysql.createPool({
+            host: dbConfig.host,
+            port: dbConfig.port,
+            user: dbConfig.user,
+            password: dbConfig.password,
+            database: dbConfig.database,
+            ssl: dbConfig.ssl,
+            waitForConnections: true,
+            connectionLimit: parseInt(process.env.DB_POOL_SIZE || '5', 10),
+            queueLimit: 0,
+            charset: 'utf8mb4',
+            enableKeepAlive: true,
+            keepAliveInitialDelay: 10000,
+            connectTimeout: 5000,
+            timezone: 'Z',
+            supportBigNumbers: true,
+            bigNumberStrings: false
+        });
+
+        let conn;
+        try {
+            conn = await pool.getConnection();
+        } catch (err) {
+            if (err && (err.code === 'ER_BAD_DB_ERROR' || err.errno === 1049)) {
+                console.warn(`⚠️ دیتابیس «${dbConfig.database}» وجود ندارد — تلاش برای ساخت آن...`);
+                await createDatabaseIfMissing();
+                conn = await pool.getConnection();
+            } else {
+                throw err;
+            }
+        }
+        await conn.ping();
+        conn.release();
+
+        console.log(`✅ اتصال به MySQL برقرار شد`);
+        await ensureSchema();
+
+        return {
+            productsCollection: createCollection('products'),
+            usersCollection: createCollection('users'),
+            commentsCollection: createCollection('comments'),
+            ordersCollection: createCollection('orders'),
+            dbType: 'mysql',
+            available: true,
+            host: dbConfig.host,
+            database: dbConfig.database,
+            pool
+        };
+    } catch (error) {
+        console.warn(`⚠️ اتصال به MySQL ناموفق بود (${error.message}) — بازگشت به پایگاه داده حافظه‌ای (In-Memory Store)`);
+        if (pool) {
+            try { await pool.end(); } catch {}
+            pool = null;
+        }
+        return {
+            productsCollection: createMemoryCollection('products'),
+            usersCollection: createMemoryCollection('users'),
+            commentsCollection: createMemoryCollection('comments'),
+            ordersCollection: createMemoryCollection('orders'),
+            dbType: 'memory',
+            available: true,
+            host: 'memory',
+            database: 'arzankala_memory',
+            pool: null
+        };
+    }
 };
 
-// دسترسی مستقیم به pool (برای seed و تست)
 const getPool = () => pool;
 
 const closeDB = async () => {
     if (pool) {
-        try { await pool.end(); } catch { /* ignore */ }
+        try { await pool.end(); } catch {}
         pool = null;
     }
 };
 
-module.exports = { connectDB, getPool, closeDB, dbConfig, createCollection, ensureSchema };
+module.exports = { connectDB, getPool, closeDB, dbConfig, createCollection, createMemoryCollection, ensureSchema };
